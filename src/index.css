@@ -1,0 +1,61 @@
+@import "tailwindcss";
+
+@import url("https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;0,700;1,500&family=Inter:wght@400;500;600&display=swap");
+
+@theme {
+  /* Core palette */
+  --color-ink: #15100c;
+  --color-void: #0b0805;
+  --color-parchment: #d8c49a;
+  --color-parchment-dim: #b5a37e;
+  --color-gold: #c9a646;
+  --color-gold-bright: #e6c568;
+  --color-ember: #8b2e2e;
+  --color-pine: #2f4a3c;
+
+  /* House colors, used dynamically once a player is sorted */
+  --color-gryffindor-red: #740001;
+  --color-gryffindor-gold: #d3a625;
+  --color-slytherin-green: #1a472a;
+  --color-slytherin-silver: #aaaaaa;
+  --color-ravenclaw-blue: #0e1a40;
+  --color-ravenclaw-bronze: #946b2d;
+  --color-hufflepuff-yellow: #ecb939;
+  --color-hufflepuff-black: #0b0b0b;
+
+  --font-display: "Cormorant Garamond", "Iowan Old Style", serif;
+  --font-body: "Inter", system-ui, sans-serif;
+}
+
+@layer base {
+  html {
+    color-scheme: dark;
+  }
+
+  body {
+    @apply bg-ink text-parchment font-body antialiased;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4 {
+    @apply font-display;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-gold-bright);
+    outline-offset: 3px;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}
