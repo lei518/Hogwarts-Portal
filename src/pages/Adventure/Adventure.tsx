@@ -1,10 +1,12 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import { Target, CalendarClock, ClipboardList, StickyNote, Bell, PartyPopper, X } from "lucide-react";
+import { Target, CalendarClock, ClipboardList, StickyNote, Bell, PartyPopper, Award, BookOpen, X } from "lucide-react";
 import { useGame } from "../../context/GameContext";
 import { getCurrentObjectives } from "../../utils/objectives";
 import { getUpcomingSchedule, getUpcomingAssignments } from "../../utils/academics";
 import { getUpcomingCalendarEvents } from "../../utils/academicCalendar";
+import { getGradedCourses } from "../../utils/grades";
+import { getUpcomingDueDates } from "../../data/libraryServices";
 import { getCourse } from "../../data/courses";
 import { ProfileSection } from "../../components/character/ProfileSection";
 
@@ -28,6 +30,8 @@ export function QuestLogPage() {
   const upcomingClasses = getUpcomingSchedule(character, 4);
   const upcomingEvents = getUpcomingCalendarEvents(4);
   const upcomingAssignments = getUpcomingAssignments(character, 4);
+  const gradedCourses = getGradedCourses(character);
+  const upcomingDueDates = getUpcomingDueDates();
 
   function handleAddNote() {
     if (!noteText.trim()) return;
@@ -154,6 +158,7 @@ export function QuestLogPage() {
               onChange={(e) => setNoteText(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && handleAddNote()}
               placeholder="Write a note..."
+              aria-label="New personal note"
               className={inputClass}
             />
             <button
@@ -193,12 +198,14 @@ export function QuestLogPage() {
               onChange={(e) => setReminderText(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && handleAddReminder()}
               placeholder="Remind me to..."
+              aria-label="New reminder"
               className={inputClass}
             />
             <input
               type="date"
               value={reminderDate}
               onChange={(e) => setReminderDate(e.target.value)}
+              aria-label="Reminder due date"
               className="bg-void/50 border border-parchment-dim/30 rounded-sm px-2 py-2 text-xs text-parchment outline-none focus:border-gold"
             />
             <button
@@ -245,6 +252,49 @@ export function QuestLogPage() {
                 </li>
               ))}
             </ul>
+          )}
+        </ProfileSection>
+
+        <ProfileSection title="Latest Grades" icon={Award}>
+          {gradedCourses.length === 0 ? (
+            <p className="text-parchment-dim text-sm">No grades recorded yet.</p>
+          ) : (
+            <div className="flex flex-col gap-1.5">
+              {gradedCourses.map((grade) => {
+                const course = getCourse(grade.courseId);
+                return (
+                  <Link
+                    key={grade.id}
+                    to="/grades"
+                    className="flex items-center justify-between gap-2 text-sm hover:text-gold-bright transition-colors"
+                  >
+                    <span className="text-parchment truncate">{course?.name ?? grade.courseId}</span>
+                    <span className="text-parchment-dim shrink-0">{grade.currentGrade}</span>
+                  </Link>
+                );
+              })}
+            </div>
+          )}
+        </ProfileSection>
+
+        <ProfileSection title="Library Due Dates" icon={BookOpen}>
+          {upcomingDueDates.length === 0 ? (
+            <p className="text-parchment-dim text-sm">No books due soon.</p>
+          ) : (
+            <div className="flex flex-col gap-1.5">
+              {upcomingDueDates.map((book) => (
+                <Link
+                  key={book.id}
+                  to="/library-services"
+                  className="text-sm truncate hover:text-gold-bright transition-colors"
+                >
+                  <span className={book.status === "Overdue" ? "text-ember" : "text-parchment-dim"}>
+                    {book.status === "Overdue" ? "Overdue" : book.dueDate}
+                  </span>{" "}
+                  <span className="text-parchment">{book.title}</span>
+                </Link>
+              ))}
+            </div>
           )}
         </ProfileSection>
       </div>

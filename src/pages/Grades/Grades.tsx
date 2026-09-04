@@ -1,6 +1,6 @@
 import { Link } from "react-router-dom";
 import { useGame } from "../../context/GameContext";
-import { grades } from "../../data/grades";
+import { getAllGrades } from "../../data/grades";
 import { getCourse } from "../../data/courses";
 import { getProfessor } from "../../data/professors";
 
@@ -16,7 +16,7 @@ export function GradesPage() {
 
   if (!character) return null;
 
-  const rows = grades
+  const rows = getAllGrades()
     .filter((grade) => {
       const course = getCourse(grade.courseId);
       return course ? course.requiredYear <= character.year : false;
@@ -28,7 +28,8 @@ export function GradesPage() {
       <h1 className="text-2xl md:text-3xl font-display text-gold-bright mb-2">📊 Grades</h1>
       <p className="text-parchment-dim text-sm mb-2">Your current standing in each enrolled course.</p>
       <p className="text-parchment-dim text-xs mb-8">
-        Sample grades - professors can't submit real grades until a Professor Portal exists.
+        Most grades shown here are sample data; any course a professor has actually reviewed reflects that
+        instead.
       </p>
 
       <div className="flex flex-col gap-2">

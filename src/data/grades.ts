@@ -1,9 +1,12 @@
 import type { GradeRecord } from "../types/grades";
+import { applyCourseGradeBridge } from "../bridges/gradeRecordBridge";
 
-// Realistic sample data, not fabricated live grading - professors can't
-// submit real grades until a Professor Portal exists (see CLAUDE.md).
-// This is the one canonical source both the Grades page and the Transcript
-// read from; Transcript never re-seeds its own grade per course.
+// Realistic sample data - a per-course grade is replaced by a real,
+// professor-reviewed one the moment the Grade Management Bridge confidently
+// matches it to the signed-in Character (see bridges/gradeRecordBridge.ts).
+// This is the one canonical seed both the Grades page and the Transcript
+// read from (through getAllGrades() below); Transcript never re-seeds its
+// own grade per course.
 export const grades: GradeRecord[] = [
   {
     id: "grade-charms",
@@ -62,6 +65,14 @@ export const grades: GradeRecord[] = [
   },
 ];
 
+// Phase 3D - Grade Management Bridge: the read layer only, the seed array
+// above is untouched. `currentGrade`/`percentage` are replaced when a
+// bridged grade exists for that course; `status`/`remarks` are left as
+// seeded, since one graded assignment isn't proof the whole course is done.
+export function getAllGrades(): GradeRecord[] {
+  return grades.map(applyCourseGradeBridge);
+}
+
 export function getGrade(courseId: string): GradeRecord | undefined {
-  return grades.find((grade) => grade.courseId === courseId);
+  return getAllGrades().find((grade) => grade.courseId === courseId);
 }

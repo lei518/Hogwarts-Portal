@@ -49,9 +49,9 @@ export function GameLayout() {
 
       <div className="flex-1 min-w-0 pb-16 md:pb-0 flex flex-col">
         <Header />
-        <div className="flex-1 min-w-0">
+        <main className="flex-1 min-w-0">
           <Outlet />
-        </div>
+        </main>
       </div>
 
       <BottomNav />

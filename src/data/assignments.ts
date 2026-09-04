@@ -1,5 +1,6 @@
 import type { Assignment } from "../types/academics";
 import { daysFromToday } from "../utils/dates";
+import { getBridgedAssignment, getBridgedAssignments } from "../bridges/assignmentBridge";
 
 // Shared, professor-authored definitions - not per-character state (see
 // character.assignmentSubmissions for that). Every page in this codebase
@@ -57,14 +58,19 @@ const assignments: Assignment[] = [
   },
 ];
 
+// Phase 3D - Published Assignment Bridge: each function below also merges
+// in Published ManagedAssignments from the Professor Portal (see
+// bridges/assignmentBridge.ts) - Draft and Archived ones never appear here.
+// The seed array above is untouched; only the read layer is extended, per
+// CLAUDE.md's Assignment Management integration seam.
 export function getAssignment(id: string): Assignment | undefined {
-  return assignments.find((assignment) => assignment.id === id);
+  return assignments.find((assignment) => assignment.id === id) ?? getBridgedAssignment(id);
 }
 
 export function getAllAssignments(): Assignment[] {
-  return assignments;
+  return [...assignments, ...getBridgedAssignments()];
 }
 
 export function getAssignmentsForCourse(courseId: string): Assignment[] {
-  return assignments.filter((assignment) => assignment.courseId === courseId);
+  return getAllAssignments().filter((assignment) => assignment.courseId === courseId);
 }

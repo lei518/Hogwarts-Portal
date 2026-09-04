@@ -32,6 +32,7 @@ export function StudentsPage() {
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder="Search students..."
+          aria-label="Search students"
           className="flex-1 bg-void/50 border border-parchment-dim/30 rounded-sm px-4 py-2.5 text-parchment placeholder:text-parchment-dim/50 focus:border-gold outline-none"
         />
         <select

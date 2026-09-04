@@ -50,13 +50,49 @@ import { QuestLogPage } from "./pages/Adventure/Adventure";
 import { AchievementsPage } from "./pages/Achievements/Achievements";
 import { SettingsPage } from "./pages/Settings/Settings";
 import { PlaceholderPage } from "./components/layout/PlaceholderPage";
+import { ProfessorLayout } from "./components/layout/ProfessorLayout";
+import { ProfessorDashboardPage } from "./pages/Professor/ProfessorDashboard";
+import { MyCoursesPage } from "./pages/Professor/MyCourses";
+import { StudentRosterPage } from "./pages/Professor/StudentRoster";
+import { OfficeHoursPage } from "./pages/Professor/OfficeHours";
+import { ProfessorAnnouncementsPage } from "./pages/Professor/ProfessorAnnouncements";
+import { ProfessorProfilePage } from "./pages/Professor/ProfessorProfile";
+import { AssignmentDashboardPage } from "./pages/Professor/AssignmentDashboard";
+import { AssignmentDetailPage as ProfessorAssignmentDetailPage } from "./pages/Professor/AssignmentDetail";
+import { AssignmentEditorPage } from "./pages/Professor/AssignmentEditor";
+import { AssignmentReviewQueuePage } from "./pages/Professor/AssignmentReviewQueue";
+import { AssignmentArchivePage } from "./pages/Professor/AssignmentArchive";
+import { ProfessorGradeDashboardPage } from "./pages/Professor/ProfessorGradeDashboard";
+import { ProfessorSubmissionDetailPage } from "./pages/Professor/ProfessorSubmissionDetail";
+import { ProfessorGradebookPage } from "./pages/Professor/ProfessorGradebook";
+import { AdminLayout } from "./components/layout/AdminLayout";
+import { AdminDashboardPage } from "./pages/Admin/AdminDashboard";
+import { StudentRecordsPage } from "./pages/Admin/StudentRecords";
+import { ProfessorRecordsPage } from "./pages/Admin/ProfessorRecords";
+import { UserAdministrationPage } from "./pages/Admin/UserAdministration";
+import { ServicesManagementPage } from "./pages/Admin/ServicesManagement";
+import { CalendarManagementPage } from "./pages/Admin/CalendarManagement";
+import { HouseCupManagementPage } from "./pages/Admin/HouseCupManagement";
+import { ResourceManagementPage } from "./pages/Admin/ResourceManagement";
+import { AnalyticsPage } from "./pages/Admin/Analytics";
+import { AdminProfilePage } from "./pages/Admin/Profile";
+import { RoleGate } from "./auth/RoleGate";
+import { AccountInactivePage } from "./pages/AccountInactive/AccountInactive";
+import { AccessErrorPage } from "./pages/AccessError/AccessError";
 
 function App() {
   return (
     <Routes>
-      {/* Player Journey Manager: re-validates every navigation against
-          progress so pages can't be reached out of order. */}
-      <Route element={<JourneyGate />}>
+      {/* Authentication Foundation (Phase 6A) - the outermost gate: role
+          resolution and cross-portal protection happen here, once, above
+          every portal's own layout/onboarding gate. See src/auth/RoleGate.tsx. */}
+      <Route element={<RoleGate />}>
+        <Route path="/account-inactive" element={<AccountInactivePage />} />
+        <Route path="/access-error" element={<AccessErrorPage />} />
+
+        {/* Player Journey Manager: re-validates every navigation against
+            progress so pages can't be reached out of order. */}
+        <Route element={<JourneyGate />}>
         <Route path="/" element={<Landing />} />
         <Route path="/authenticate" element={<Authentication />} />
         <Route path="/sign-in" element={<SignIn />} />
@@ -134,6 +170,48 @@ function App() {
           path="*"
           element={<PlaceholderPage title="Page Not Found" phase="a future phase" />}
         />
+      </Route>
+
+      {/* Professor Portal Foundation - standalone module, seeded data only,
+          no Student Portal auth/onboarding gating. See CLAUDE.md's
+          Professor Portal section. */}
+      <Route element={<ProfessorLayout />}>
+        <Route path="/professor/dashboard" element={<ProfessorDashboardPage />} />
+        <Route path="/professor/courses" element={<MyCoursesPage />} />
+        <Route path="/professor/roster" element={<StudentRosterPage />} />
+        <Route path="/professor/office-hours" element={<OfficeHoursPage />} />
+        <Route path="/professor/announcements" element={<ProfessorAnnouncementsPage />} />
+        <Route path="/professor/profile" element={<ProfessorProfilePage />} />
+
+        {/* Assignment Management - Phase 3B, local seeded state only, see CLAUDE.md */}
+        <Route path="/professor/assignments" element={<AssignmentDashboardPage />} />
+        <Route path="/professor/assignments/new" element={<AssignmentEditorPage />} />
+        <Route path="/professor/assignments/review" element={<AssignmentReviewQueuePage />} />
+        <Route path="/professor/assignments/archive" element={<AssignmentArchivePage />} />
+        <Route path="/professor/assignments/:id" element={<ProfessorAssignmentDetailPage />} />
+        <Route path="/professor/assignments/:id/edit" element={<AssignmentEditorPage />} />
+
+        {/* Grade Management - Phase 3C, local seeded state only, see CLAUDE.md */}
+        <Route path="/professor/grades" element={<ProfessorGradeDashboardPage />} />
+        <Route path="/professor/grades/gradebook" element={<ProfessorGradebookPage />} />
+        <Route path="/professor/grades/:id" element={<ProfessorSubmissionDetailPage />} />
+      </Route>
+
+      {/* Admin Portal Foundation - standalone module, read-only, no Student
+          Portal auth/onboarding gating. See CLAUDE.md's Admin Portal
+          section. */}
+      <Route element={<AdminLayout />}>
+        <Route path="/admin/dashboard" element={<AdminDashboardPage />} />
+        <Route path="/admin/students" element={<StudentRecordsPage />} />
+        <Route path="/admin/professors" element={<ProfessorRecordsPage />} />
+        <Route path="/admin/users" element={<UserAdministrationPage />} />
+        <Route path="/admin/services" element={<ServicesManagementPage />} />
+        <Route path="/admin/calendar" element={<CalendarManagementPage />} />
+        <Route path="/admin/house-cup" element={<HouseCupManagementPage />} />
+        <Route path="/admin/resources" element={<ResourceManagementPage />} />
+        <Route path="/admin/analytics" element={<AnalyticsPage />} />
+        <Route path="/admin/profile" element={<AdminProfilePage />} />
+      </Route>
       </Route>
     </Routes>
   );

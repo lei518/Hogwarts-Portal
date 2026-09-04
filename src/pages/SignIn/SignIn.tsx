@@ -9,18 +9,34 @@ const inputClass =
 
 export function SignIn() {
   const navigate = useNavigate();
-  const { user, signIn } = useAuth();
+  const { user, role, loading: authLoading, signIn } = useAuth();
   const { state, syncStatus, pendingGuestAdoption } = useGame();
-  const [username, setUsername] = useState("");
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
-  // Once signed in, wait for the cloud save fetch to settle (and any
-  // guest-save-adoption choice to resolve) before deciding where a
-  // character-bearing player goes vs. a brand new one.
+  // Authentication Foundation (Phase 6A): a Professor or Admin has no
+  // Character/cloud-save concept at all, so they skip straight to their
+  // own dashboard - only a student falls through to the existing
+  // character-bearing-vs-brand-new logic below, unchanged. `authLoading`
+  // guards against acting on `role` before AuthContext's profile fetch
+  // (see its own comment) has actually resolved it.
   useEffect(() => {
-    if (!user) return;
+    if (!user || authLoading) return;
+    if (role === "professor") {
+      navigate("/professor/dashboard", { replace: true });
+      return;
+    }
+    if (role === "admin") {
+      navigate("/admin/dashboard", { replace: true });
+      return;
+    }
+    if (role !== "student") return;
+
+    // Once signed in, wait for the cloud save fetch to settle (and any
+    // guest-save-adoption choice to resolve) before deciding where a
+    // character-bearing player goes vs. a brand new one.
     if (state.character) {
       navigate("/dashboard", { replace: true });
       return;
@@ -28,13 +44,13 @@ export function SignIn() {
     if (syncStatus !== "saving" && !pendingGuestAdoption) {
       navigate("/create-character", { replace: true });
     }
-  }, [user, state.character, syncStatus, pendingGuestAdoption, navigate]);
+  }, [user, role, authLoading, state.character, syncStatus, pendingGuestAdoption, navigate]);
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
     setError(null);
     setSubmitting(true);
-    const result = await signIn(username, password);
+    const result = await signIn(email, password);
     setSubmitting(false);
     if (result.error) setError(result.error);
   }
@@ -49,16 +65,17 @@ export function SignIn() {
 
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
           <div>
-            <label htmlFor="signin-username" className="block text-xs uppercase tracking-wide text-parchment-dim mb-1.5">
-              Username
+            <label htmlFor="signin-email" className="block text-xs uppercase tracking-wide text-parchment-dim mb-1.5">
+              Email
             </label>
             <input
-              id="signin-username"
+              id="signin-email"
+              type="email"
               required
-              autoComplete="username"
+              autoComplete="email"
               autoFocus
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
               className={inputClass}
             />
           </div>

@@ -13,18 +13,27 @@ import {
   createProfile,
   updateProfileName,
   type CloudProfile,
+  type UserRole,
 } from "../services/supabase";
-import { isValidUsername, usernameToEmail } from "../utils/auth";
 
 type RenameResult = { success: true } | { success: false; nextEligibleAt: Date };
 
+// Authentication Foundation (Phase 6A) - `role`/`active` are derived
+// accessors over `profile`, not separate state: Supabase (via `profile`)
+// stays the single source of truth, this just saves every consumer from
+// reaching into `profile?.role`/`profile?.active` themselves. `loading`
+// now also covers the profile fetch (not just session restore) - see this
+// file's own effect comments - so a consumer never sees `role` as
+// definitively "null" while it's actually still in flight.
 interface AuthContextValue {
   user: User | null;
   profile: CloudProfile | null;
+  role: UserRole | null;
+  active: boolean | null;
   loading: boolean;
   configured: boolean;
-  signIn: (username: string, password: string) => Promise<{ error: string | null }>;
-  signUp: (username: string, password: string) => Promise<{ error: string | null }>;
+  signIn: (email: string, password: string) => Promise<{ error: string | null }>;
+  signUp: (displayName: string, email: string, password: string) => Promise<{ error: string | null }>;
   signOut: () => Promise<void>;
   renameDisplayName: (newName: string) => Promise<RenameResult>;
 }
@@ -37,16 +46,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<CloudProfile | null>(null);
   const [loading, setLoading] = useState(supabaseConfigured);
+  // Gates the profile-fetch effect below until the initial session restore
+  // has actually run once - without this, that effect's own "no user yet"
+  // branch would fire on the very first render (before getSession() has
+  // had a chance to resolve) and flip `loading` false prematurely, letting
+  // RoleGate act on an as-yet-unconfirmed "signed out" state. Not exposed
+  // on AuthContextValue; it's sequencing plumbing, not authentication state.
+  const [sessionResolved, setSessionResolved] = useState(false);
 
   useEffect(() => {
     if (!supabase) {
       setLoading(false);
+      setSessionResolved(true);
       return;
     }
 
     supabase.auth.getSession().then(({ data }) => {
       setUser(data.session?.user ?? null);
-      setLoading(false);
+      setSessionResolved(true);
     });
 
     const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
@@ -56,56 +73,54 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => listener.subscription.unsubscribe();
   }, []);
 
+  // `loading` now covers the profile fetch too, not just session restore -
+  // role-based routing needs both settled before it can safely act, and a
+  // profile fetch on today's seed-sized `profiles` table is the only
+  // "real" network round trip anywhere in this authentication flow.
   useEffect(() => {
+    if (!sessionResolved) return;
     if (!user) {
       setProfile(null);
+      setLoading(false);
       return;
     }
     let cancelled = false;
+    setLoading(true);
     fetchProfile(user.id).then((p) => {
-      if (!cancelled) setProfile(p);
+      if (!cancelled) {
+        setProfile(p);
+        setLoading(false);
+      }
     });
     return () => {
       cancelled = true;
     };
-  }, [user]);
+  }, [user, sessionResolved]);
 
-  async function signIn(username: string, password: string) {
+  async function signIn(email: string, password: string) {
     if (!supabase) return { error: "Supabase is not configured." };
-    const { error } = await supabase.auth.signInWithPassword({
-      email: usernameToEmail(username),
-      password,
-    });
-    // Supabase's generic invalid-credentials message still applies (it
-    // doesn't know about "usernames"); reword it since the player never
-    // typed an email and shouldn't see one implied.
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) {
-      return { error: /invalid/i.test(error.message) ? "Incorrect username or password." : error.message };
+      return { error: /invalid/i.test(error.message) ? "Incorrect email or password." : error.message };
     }
     return { error: null };
   }
 
-  async function signUp(username: string, password: string) {
+  async function signUp(displayName: string, email: string, password: string) {
     if (!supabase) return { error: "Supabase is not configured." };
-    if (!isValidUsername(username)) {
-      return { error: "Usernames must be 3-20 characters: letters, numbers, and underscores only." };
-    }
 
-    const { data, error } = await supabase.auth.signUp({
-      email: usernameToEmail(username),
-      password,
-    });
+    const { data, error } = await supabase.auth.signUp({ email, password });
     if (error) {
-      return { error: /already registered/i.test(error.message) ? "That username is already taken." : error.message };
+      return { error: /already registered/i.test(error.message) ? "That email is already registered." : error.message };
     }
     // Some Supabase projects respond to a duplicate email with a 200 and an
     // empty `identities` array (anti-enumeration behavior) instead of an
     // error, so a "successful" signup with no identity is also a duplicate.
     if (data.user && data.user.identities && data.user.identities.length === 0) {
-      return { error: "That username is already taken." };
+      return { error: "That email is already registered." };
     }
     if (data.user) {
-      const created = await createProfile(data.user.id, username);
+      const created = await createProfile(data.user.id, displayName);
       setProfile(created);
     }
     return { error: null };
@@ -137,6 +152,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       value={{
         user,
         profile,
+        role: profile?.role ?? null,
+        active: profile?.active ?? null,
         loading,
         configured: supabaseConfigured,
         signIn,

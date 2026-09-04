@@ -41,22 +41,28 @@ export function AnnouncementsPage() {
         ))}
       </div>
 
-      <div className="flex flex-col gap-2">
-        {filtered.map((announcement) => (
-          <div key={announcement.id} className="border border-parchment-dim/20 rounded-sm px-5 py-4">
-            <div className="flex items-start justify-between gap-3 mb-1">
-              <p className="font-display text-lg text-parchment">{announcement.title}</p>
-              <span className="text-[10px] uppercase tracking-wide px-2 py-0.5 rounded-full border border-parchment-dim/25 text-parchment-dim shrink-0">
-                {announcement.category}
-              </span>
+      {filtered.length === 0 ? (
+        <p className="text-parchment-dim text-sm border border-parchment-dim/15 rounded-sm px-5 py-8 text-center">
+          No announcements.
+        </p>
+      ) : (
+        <div className="flex flex-col gap-2">
+          {filtered.map((announcement) => (
+            <div key={announcement.id} className="border border-parchment-dim/20 rounded-sm px-5 py-4">
+              <div className="flex items-start justify-between gap-3 mb-1">
+                <p className="font-display text-lg text-parchment">{announcement.title}</p>
+                <span className="text-[10px] uppercase tracking-wide px-2 py-0.5 rounded-full border border-parchment-dim/25 text-parchment-dim shrink-0">
+                  {announcement.category}
+                </span>
+              </div>
+              <p className="text-parchment-dim text-xs mb-2">
+                {announcement.author} &middot; {formatDate(announcement.publishedAt)}
+              </p>
+              <p className="text-parchment-dim text-sm">{announcement.body}</p>
             </div>
-            <p className="text-parchment-dim text-xs mb-2">
-              {announcement.author} &middot; {formatDate(announcement.publishedAt)}
-            </p>
-            <p className="text-parchment-dim text-sm">{announcement.body}</p>
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

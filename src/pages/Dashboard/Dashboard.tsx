@@ -2,10 +2,14 @@ import { useGame } from "../../context/GameContext";
 import { WelcomeWidget } from "../../components/dashboard/widgets/WelcomeWidget";
 import { CurrentFocusWidget } from "../../components/dashboard/widgets/CurrentFocusWidget";
 import { TodaysScheduleWidget } from "../../components/dashboard/widgets/TodaysScheduleWidget";
+import { AcademicStandingWidget } from "../../components/dashboard/widgets/AcademicStandingWidget";
 import { HouseCupSummaryWidget } from "../../components/dashboard/widgets/HouseCupSummaryWidget";
 import { RecentOwlPostWidget } from "../../components/dashboard/widgets/RecentOwlPostWidget";
 import { SchoolAnnouncementsWidget } from "../../components/dashboard/widgets/SchoolAnnouncementsWidget";
 import { QuickAccessWidget } from "../../components/dashboard/widgets/QuickAccessWidget";
+import { LatestGradedAssignmentWidget } from "../../components/dashboard/widgets/LatestGradedAssignmentWidget";
+import { RecentProfessorFeedbackWidget } from "../../components/dashboard/widgets/RecentProfessorFeedbackWidget";
+import { UpcomingGradedWorkWidget } from "../../components/dashboard/widgets/UpcomingGradedWorkWidget";
 
 // The portal homepage: composes widgets, owns no data of its own. Adding a
 // future widget (Assignments, Grades, Quidditch Season, ...) means writing
@@ -23,9 +27,13 @@ export function Dashboard() {
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <CurrentFocusWidget />
         <TodaysScheduleWidget />
+        <AcademicStandingWidget />
         <HouseCupSummaryWidget />
         <RecentOwlPostWidget />
         <SchoolAnnouncementsWidget />
+        <LatestGradedAssignmentWidget />
+        <RecentProfessorFeedbackWidget />
+        <UpcomingGradedWorkWidget />
       </div>
 
       <QuickAccessWidget />

@@ -1,7 +1,13 @@
 import type { Character } from "../types/character";
 import type { AcademicProgressStatus, Assignment, Course, DayOfWeek, ScheduleEntry } from "../types/academics";
-import { getScheduleForYear } from "../data/schedules";
-import { getAssignmentsForCourse, getAllAssignments } from "../data/assignments";
+// Phase 5B: these functions are called synchronously from several page
+// render bodies (AcademicProgress, CourseDetail, the Student Planner, ...)
+// several layers above this file - making them async would force those
+// pages to change, which this milestone explicitly avoids. They read the
+// repositories' Phase 5B transitional sync accessor instead (see
+// repositories/*.ts's own comments on why it exists and when it goes away).
+import { schedulesRepositorySync } from "../repositories/schedulesRepository";
+import { assignmentsRepositorySync } from "../repositories/assignmentsRepository";
 
 const WEEK: DayOfWeek[] = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
 
@@ -12,7 +18,7 @@ const WEEK: DayOfWeek[] = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday
 export function getCourseStatus(character: Character, course: Course): AcademicProgressStatus {
   if (character.year < course.requiredYear) return "Not Started";
 
-  const courseAssignments = getAssignmentsForCourse(course.id);
+  const courseAssignments = assignmentsRepositorySync.getForCourse(course.id);
   if (courseAssignments.length > 0) {
     const allSubmitted = courseAssignments.every(
       (assignment) => character.assignmentSubmissions[assignment.id]?.status === "Submitted"
@@ -27,7 +33,8 @@ export function getCourseStatus(character: Character, course: Course): AcademicP
 // professor-authored) stays the canonical source; only submission state
 // lives on Character.
 export function getUpcomingAssignments(character: Character, count: number): Assignment[] {
-  return getAllAssignments()
+  return assignmentsRepositorySync
+    .getAll()
     .filter((assignment) => assignment.requiredYear <= character.year)
     .filter((assignment) => character.assignmentSubmissions[assignment.id]?.status !== "Submitted")
     .sort((a, b) => a.dueDate.localeCompare(b.dueDate))
@@ -47,7 +54,7 @@ export function getSpellMasterySummary(character: Character): string {
 // (Academics owns the data) rather than keeping its own copy - starts from
 // today and wraps into next week once the week runs out.
 export function getUpcomingSchedule(character: Character, count: number): ScheduleEntry[] {
-  const entries = getScheduleForYear(character.year);
+  const entries = schedulesRepositorySync.getForYear(character.year);
   if (entries.length === 0) return [];
 
   const jsDay = new Date().getDay(); // 0 Sun - 6 Sat

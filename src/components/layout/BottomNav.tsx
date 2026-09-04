@@ -1,11 +1,16 @@
 import { Link, useLocation } from "react-router-dom";
-import { studentNavigation } from "./navItems";
+import { studentNavigation, type NavSection } from "./navItems";
+
+interface BottomNavProps {
+  /** Defaults to the Student Portal's own nav - other portals (Professor, Admin) pass their own list. */
+  sections?: NavSection[];
+}
 
 // One tab per section, not a slice of a flat list - every section stays
 // reachable from mobile. Each tab opens its section's first page; a tab is
 // "active" whenever the current route belongs to that section at all, since
 // a section can hold pages the tab itself doesn't link to directly.
-export function BottomNav() {
+export function BottomNav({ sections = studentNavigation }: BottomNavProps) {
   const { pathname } = useLocation();
 
   return (
@@ -14,7 +19,7 @@ export function BottomNav() {
       className="md:hidden fixed bottom-0 left-0 right-0 z-20 bg-void/95 border-t border-parchment-dim/15 backdrop-blur-sm"
     >
       <ul className="flex justify-around">
-        {studentNavigation.map((section) => {
+        {sections.map((section) => {
           const primaryItem = section.items[0];
           if (!primaryItem) return null;
           const isActive = section.items.some((item) => item.path === pathname);

@@ -4,6 +4,7 @@ import { getAnnouncement } from "./announcements";
 import { getAllAssignments } from "./assignments";
 import { getCourse } from "./courses";
 import { getProfessor } from "./professors";
+import { getUpcomingDueDates } from "./libraryServices";
 
 // Placeholder Owl Post that appears the moment a real onboarding milestone
 // happens, so the inbox never looks empty for a normally-progressing
@@ -73,4 +74,17 @@ export const owlPostSeeds: OwlPostSeed[] = [
       }),
     };
   }),
+  // Phase 2 Integration Layer: one seed per over-due/due-soon BorrowedBook
+  // (data/libraryServices.ts) - the Library Services -> Owl Post extension
+  // point, same generation pattern as the per-assignment block above.
+  ...getUpcomingDueDates().map((book): OwlPostSeed => ({
+    id: `seed:library-due:${book.id}`,
+    category: "School",
+    isEligible: () => true,
+    build: () => ({
+      sender: "Hogwarts Library Services",
+      subject: book.status === "Overdue" ? `Overdue: "${book.title}"` : `Due Soon: "${book.title}"`,
+      body: `"${book.title}" was due ${book.dueDate}. Please return or renew it at the Library Services desk.`,
+    }),
+  })),
 ];

@@ -67,6 +67,7 @@ export function LibraryPage() {
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder="Search books..."
+          aria-label="Search books"
           className="flex-1 bg-void/50 border border-parchment-dim/30 rounded-sm px-4 py-2.5 text-parchment placeholder:text-parchment-dim/50 focus:border-gold outline-none"
         />
         <select

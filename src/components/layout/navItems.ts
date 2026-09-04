@@ -34,6 +34,16 @@ import {
   Store,
   PackageSearch,
   LifeBuoy,
+  LayoutDashboard,
+  Clock,
+  UserCircle,
+  ListChecks,
+  Archive,
+  FolderOpen,
+  UserCog,
+  Settings2,
+  Boxes,
+  BarChart3,
 } from "lucide-react";
 import type { ComponentType } from "react";
 
@@ -59,7 +69,7 @@ export interface NavSection {
  * gets its own section list here. Sidebar/BottomNav/Home render whichever
  * list is passed in - none of them know about roles or pages directly.
  */
-export type PortalRole = "student" | "professor" | "staff";
+export type PortalRole = "student" | "professor" | "admin";
 
 export const studentNavigation: NavSection[] = [
   {
@@ -145,9 +155,127 @@ export const studentNavigation: NavSection[] = [
   },
 ];
 
+// Professor Portal Foundation - a second, parallel section list for a
+// different role, grouped by professional workflow (Teaching/Engagement)
+// rather than Student's life-domain grouping, per CLAUDE.md's Professor
+// Portal section. Reuses the exact NavSection shape - Sidebar/BottomNav
+// render this the same way they render studentNavigation, via their
+// `sections` prop.
+export const professorNavigation: NavSection[] = [
+  {
+    id: "professor-dashboard",
+    label: "Dashboard",
+    icon: LayoutDashboard,
+    items: [
+      { path: "/professor/dashboard", label: "Dashboard", icon: LayoutDashboard, description: "Your teaching overview at a glance." },
+    ],
+  },
+  {
+    id: "teaching",
+    label: "Teaching",
+    icon: GraduationCap,
+    items: [
+      { path: "/professor/courses", label: "My Courses", icon: BookMarked, description: "The sections you teach this year." },
+      { path: "/professor/roster", label: "Student Roster", icon: Users, description: "Everyone enrolled across your sections." },
+    ],
+  },
+  {
+    id: "coursework",
+    label: "Assignments",
+    icon: NotebookPen,
+    items: [
+      { path: "/professor/assignments", label: "Assignments", icon: NotebookPen, description: "Everything you've assigned, across every section." },
+      { path: "/professor/assignments/review", label: "Review Queue", icon: ListChecks, description: "Drafts waiting for your review." },
+      { path: "/professor/assignments/archive", label: "Archive", icon: Archive, description: "Past assignments, kept for reference." },
+    ],
+  },
+  {
+    id: "grading",
+    label: "Grades",
+    icon: Percent,
+    items: [
+      { path: "/professor/grades", label: "Grade Dashboard", icon: Percent, description: "Pending reviews and grading overview." },
+      { path: "/professor/grades/gradebook", label: "Gradebook", icon: BookOpen, description: "Every reviewed submission, sortable by course, student, or grade." },
+    ],
+  },
+  {
+    id: "engagement",
+    label: "Engagement",
+    icon: Megaphone,
+    items: [
+      { path: "/professor/office-hours", label: "Office Hours", icon: Clock, description: "When and where students can find you." },
+      { path: "/professor/announcements", label: "Announcements", icon: Megaphone, description: "Notices you've posted to your students." },
+    ],
+  },
+  {
+    id: "professor-profile",
+    label: "Profile",
+    icon: UserCircle,
+    items: [
+      { path: "/professor/profile", label: "Profile", icon: UserCircle, description: "Your staff identity and bio." },
+    ],
+  },
+];
+
+// Admin Portal Foundation - a third, parallel section list for a third
+// role, grouped by administrative concern (Records/Operations/Insights)
+// rather than either Student's life-domain or Professor's workflow
+// grouping, per CLAUDE.md's Admin Portal section. Reuses the exact
+// NavSection shape - Sidebar/BottomNav render this the same way, via their
+// `sections` prop.
+export const adminNavigation: NavSection[] = [
+  {
+    id: "admin-dashboard",
+    label: "Dashboard",
+    icon: LayoutDashboard,
+    items: [
+      { path: "/admin/dashboard", label: "Dashboard", icon: LayoutDashboard, description: "A school-wide overview at a glance." },
+    ],
+  },
+  {
+    id: "records",
+    label: "Records",
+    icon: FolderOpen,
+    items: [
+      { path: "/admin/students", label: "Student Records", icon: Users, description: "Browse the student directory." },
+      { path: "/admin/professors", label: "Professor Records", icon: UserSquare, description: "Browse the staff directory and what they teach." },
+      { path: "/admin/users", label: "User Administration", icon: UserCog, description: "Accounts, roles, and status." },
+    ],
+  },
+  {
+    id: "operations",
+    label: "Operations",
+    icon: Settings2,
+    items: [
+      { path: "/admin/services", label: "Services Management", icon: ConciergeBell, description: "Review every Student Service." },
+      { path: "/admin/calendar", label: "Calendar Management", icon: CalendarRange, description: "Review the Academic Calendar." },
+      { path: "/admin/house-cup", label: "House Cup Management", icon: Trophy, description: "Review house standings and awards." },
+      { path: "/admin/resources", label: "Resource Management", icon: Boxes, description: "Review the Library and School Policies." },
+    ],
+  },
+  {
+    id: "insights",
+    label: "Analytics",
+    icon: BarChart3,
+    items: [
+      { path: "/admin/analytics", label: "Analytics", icon: BarChart3, description: "School-wide numbers, computed from existing data." },
+    ],
+  },
+  {
+    id: "admin-profile",
+    label: "Profile",
+    icon: UserCircle,
+    items: [
+      { path: "/admin/profile", label: "Profile", icon: UserCircle, description: "Your administrative identity and bio." },
+    ],
+  },
+];
+
 /** Future portals plug in here without touching Sidebar/BottomNav/Home. */
 const navigationByRole: Partial<Record<PortalRole, NavSection[]>> = {
   student: studentNavigation,
+  professor: professorNavigation,
+  admin: adminNavigation,
 };
 
 export function getNavigationForRole(role: PortalRole): NavSection[] {

@@ -3,7 +3,6 @@ import { Link, useNavigate } from "react-router-dom";
 import { Button } from "../../components/ui/Button";
 import { useAuth } from "../../context/AuthContext";
 import { useGame } from "../../context/GameContext";
-import { isValidUsername } from "../../utils/auth";
 
 const inputClass =
   "w-full bg-void/50 border border-parchment-dim/30 rounded-sm px-3 py-2.5 text-parchment focus:border-gold outline-none";
@@ -12,7 +11,8 @@ export function CreateAccount() {
   const navigate = useNavigate();
   const { user, signUp } = useAuth();
   const { state, syncStatus, pendingGuestAdoption } = useGame();
-  const [username, setUsername] = useState("");
+  const [displayName, setDisplayName] = useState("");
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -36,8 +36,8 @@ export function CreateAccount() {
     event.preventDefault();
     setError(null);
 
-    if (!isValidUsername(username)) {
-      setError("Usernames must be 3-20 characters: letters, numbers, and underscores only.");
+    if (!displayName.trim()) {
+      setError("Enter your name.");
       return;
     }
     if (password !== confirmPassword) {
@@ -46,7 +46,7 @@ export function CreateAccount() {
     }
 
     setSubmitting(true);
-    const result = await signUp(username, password);
+    const result = await signUp(displayName.trim(), email, password);
     setSubmitting(false);
     if (result.error) setError(result.error);
   }
@@ -61,22 +61,33 @@ export function CreateAccount() {
 
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
           <div>
-            <label htmlFor="signup-username" className="block text-xs uppercase tracking-wide text-parchment-dim mb-1.5">
-              Username
+            <label htmlFor="signup-display-name" className="block text-xs uppercase tracking-wide text-parchment-dim mb-1.5">
+              Display Name
             </label>
             <input
-              id="signup-username"
+              id="signup-display-name"
               required
-              autoComplete="username"
+              autoComplete="name"
               autoFocus
-              placeholder="e.g. HarryPotter"
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
+              placeholder="e.g. Harry Potter"
+              value={displayName}
+              onChange={(e) => setDisplayName(e.target.value)}
               className={inputClass}
             />
-            <p className="text-parchment-dim/70 text-xs mt-1.5">
-              3-20 characters: letters, numbers, and underscores.
-            </p>
+          </div>
+          <div>
+            <label htmlFor="signup-email" className="block text-xs uppercase tracking-wide text-parchment-dim mb-1.5">
+              Email
+            </label>
+            <input
+              id="signup-email"
+              type="email"
+              required
+              autoComplete="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className={inputClass}
+            />
           </div>
           <div>
             <label htmlFor="signup-password" className="block text-xs uppercase tracking-wide text-parchment-dim mb-1.5">

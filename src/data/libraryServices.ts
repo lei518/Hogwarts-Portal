@@ -48,3 +48,18 @@ export const readingRooms: ReadingRoom[] = [
   { id: "room-2", name: "Quiet Study Room", capacity: 12, availability: "Open" },
   { id: "room-3", name: "Group Study Room A", capacity: 6, availability: "Reserved" },
 ];
+
+const DUE_SOON_WINDOW_DAYS = 7;
+
+// Phase 2 Integration Layer: the Student Planner and Owl Post both read this
+// instead of filtering `borrowedBooks` themselves - Library Services stays
+// the one place loan data lives, per CLAUDE.md's Student Services rules.
+export function getUpcomingDueDates(): BorrowedBook[] {
+  const todayIso = new Date().toISOString().slice(0, 10);
+  const dueSoonIso = new Date(Date.now() + DUE_SOON_WINDOW_DAYS * 24 * 60 * 60 * 1000)
+    .toISOString()
+    .slice(0, 10);
+  return borrowedBooks.filter(
+    (book) => book.status === "Overdue" || (book.dueDate >= todayIso && book.dueDate <= dueSoonIso)
+  );
+}

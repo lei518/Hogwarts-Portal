@@ -32,6 +32,17 @@ const initialState: GameState = {
   settings: DEFAULT_SETTINGS,
 };
 
+// Phase 3D - Grade Management Bridge. The sole write path for a
+// Professor-reviewed grade to reach the Student Portal's own
+// AssignmentSubmission - dispatched only by bridges/GradeBridgeSync.tsx,
+// only after it has confirmed (by exact name match, its one and only
+// correspondence rule) that a StudentSubmission belongs to the signed-in
+// Character. This action does not know or care where `grade` came from.
+interface ApplyProfessorGradePayload {
+  assignmentId: string;
+  grade: number;
+}
+
 interface CastSpellPayload {
   spellId: string;
   manaCost: number;
@@ -129,6 +140,7 @@ type GameAction =
   | { type: "MARK_ALL_OWL_POST_READ" }
   | { type: "AWARD_HOUSE_POINTS"; payload: AwardHousePointsPayload }
   | { type: "SUBMIT_ASSIGNMENT"; payload: { assignmentId: string } }
+  | { type: "APPLY_PROFESSOR_GRADE"; payload: ApplyProfessorGradePayload }
   | { type: "ADD_PERSONAL_NOTE"; payload: string }
   | { type: "REMOVE_PERSONAL_NOTE"; payload: string }
   | { type: "ADD_REMINDER"; payload: { text: string; dueDate?: string } }
@@ -512,6 +524,27 @@ function gameReducer(state: GameState, action: GameAction): GameState {
       character = { ...character, owlPost: [confirmation, ...character.owlPost] };
 
       return { ...state, character };
+    }
+    // Phase 3D - Grade Management Bridge. Sole responsibility: move the
+    // existing submission from "Submitted" to "Graded" and record the
+    // score. No house points, no Owl Post, nothing else - those are
+    // separate, already-existing actions the caller (GradeBridgeSync)
+    // dispatches on its own. A missing or non-"Submitted" entry is a
+    // normal, silent no-op, not an error.
+    case "APPLY_PROFESSOR_GRADE": {
+      if (!state.character) return state;
+      const { assignmentId, grade } = action.payload;
+      const existing = state.character.assignmentSubmissions[assignmentId];
+      if (!existing || existing.status !== "Submitted") return state;
+
+      const submission: AssignmentSubmission = { ...existing, status: "Graded", grade };
+      return {
+        ...state,
+        character: {
+          ...state.character,
+          assignmentSubmissions: { ...state.character.assignmentSubmissions, [assignmentId]: submission },
+        },
+      };
     }
     case "ADD_PERSONAL_NOTE": {
       if (!state.character) return state;

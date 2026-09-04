@@ -1,9 +1,19 @@
 import type { Character } from "../types/character";
-import type { AcademicStanding, AcademicStandingLevel, SemesterSummary, TranscriptRecord } from "../types/grades";
-import { grades } from "../data/grades";
-import { courses } from "../data/courses";
+import type {
+  AcademicStanding,
+  AcademicStandingLevel,
+  GradeRecord,
+  SemesterSummary,
+  TranscriptRecord,
+} from "../types/grades";
+// Phase 5B: called synchronously from several page render bodies (Grades,
+// Transcript, Academic Standing, Semester Summary, ...) - see
+// repositories/*.ts's own comments on each Phase 5B transitional sync
+// accessor and when it goes away.
+import { gradesRepositorySync } from "../repositories/gradesRepository";
+import { coursesRepositorySync } from "../repositories/coursesRepository";
+import { calendarRepositorySync } from "../repositories/calendarRepository";
 import { getCourseStatus } from "./academics";
-import { getCalendarEvent } from "../data/academicCalendar";
 
 const PLACEHOLDER = "—";
 
@@ -12,7 +22,10 @@ const PLACEHOLDER = "—";
 // only honest way to report this without a second points ledger.
 const ACADEMIC_HOUSE_POINT_SOURCES = ["Potions", "Assignments"];
 
-function percentageToLetter(percentage: number): string {
+// Exported for bridges/gradeRecordBridge.ts - reused rather than
+// duplicated so a bridged Professor grade is lettered the same way a
+// seeded one is.
+export function percentageToLetter(percentage: number): string {
   if (percentage >= 90) return "A";
   if (percentage >= 80) return "B";
   if (percentage >= 70) return "C";
@@ -24,21 +37,22 @@ function percentageToLetter(percentage: number): string {
 // Academic Calendar dates Resources already owns rather than inventing a
 // second "what term is it" source.
 export function getCurrentSemester(): string {
-  const springBegins = getCalendarEvent("spring-term-begins");
+  const springBegins = calendarRepositorySync.getById("spring-term-begins");
   const todayIso = new Date().toISOString().slice(0, 10);
   if (springBegins && todayIso >= springBegins.date) return "Spring Term";
   return "Autumn Term";
 }
 
 export function getTranscript(character: Character): TranscriptRecord {
-  const entries = grades
+  const entries = gradesRepositorySync
+    .getAll()
     .map((grade) => ({
       courseId: grade.courseId,
       finalGrade: grade.currentGrade,
       credits: PLACEHOLDER,
     }))
     .filter((entry) => {
-      const course = courses.find((c) => c.id === entry.courseId);
+      const course = coursesRepositorySync.getById(entry.courseId);
       return course ? course.requiredYear <= character.year : false;
     });
 
@@ -51,7 +65,7 @@ export function getTranscript(character: Character): TranscriptRecord {
 }
 
 export function getAcademicStanding(character: Character): AcademicStanding {
-  const eligibleCourses = courses.filter((course) => course.requiredYear <= character.year);
+  const eligibleCourses = coursesRepositorySync.getAll().filter((course) => course.requiredYear <= character.year);
   const coursesCompleted = eligibleCourses.filter(
     (course) => getCourseStatus(character, course) === "Completed"
   ).length;
@@ -82,9 +96,21 @@ export function getAcademicStanding(character: Character): AcademicStanding {
   };
 }
 
+// Phase 2 Integration Layer: the Student Planner's "Latest Grades" preview
+// reads this instead of re-filtering `grades` itself - Grades stays the one
+// place that logic lives. Only courses with a recorded percentage are
+// "graded" - "Incomplete" records (e.g. Flying) are deliberately excluded
+// rather than shown as a fabricated grade.
+export function getGradedCourses(character: Character): GradeRecord[] {
+  return gradesRepositorySync.getAll().filter((grade) => {
+    const course = coursesRepositorySync.getById(grade.courseId);
+    return course && course.requiredYear <= character.year && grade.percentage !== undefined;
+  });
+}
+
 export function getSemesterSummary(character: Character): SemesterSummary {
-  const eligibleGrades = grades.filter((grade) => {
-    const course = courses.find((c) => c.id === grade.courseId);
+  const eligibleGrades = gradesRepositorySync.getAll().filter((grade) => {
+    const course = coursesRepositorySync.getById(grade.courseId);
     return course ? course.requiredYear <= character.year : false;
   });
   const graded = eligibleGrades.filter((grade) => grade.percentage !== undefined);
@@ -103,6 +129,9 @@ export function getSemesterSummary(character: Character): SemesterSummary {
     averageGrade:
       averagePercentage === null ? "Not available" : `${percentageToLetter(averagePercentage)} (${averagePercentage}%)`,
     standing: getAcademicStanding(character).standing,
-    professorFeedback: "Professor feedback will appear here once professors can submit it through the Professor Portal.",
+    // A per-assignment grade already appears here the moment a matching
+    // Professor Portal review is bridged (see bridges/gradeRecordBridge.ts);
+    // an end-of-term written comment is a separate, still-unbuilt feature.
+    professorFeedback: "A written term-end note from your professor isn't available yet.",
   };
 }
