@@ -1,86 +1,74 @@
+import type { Character } from "../types/character";
+
 // The Player Journey Manager: a pure, router-agnostic model of "what screen
-// should this player be on right now?" Kept separate from React so the rules
-// are easy to read and test in isolation from routing/rendering concerns.
+// should this student be on right now?" Kept separate from React so the
+// rules are easy to read and test in isolation from routing/rendering
+// concerns.
+//
+// Year-Based Onboarding (Phase 6L): there is no more multi-step Character
+// Creation -> Acceptance Letter -> Wand -> Hogwarts Express -> Sorting ->
+// Common Room -> Tutorial pipeline. A student's Character is synthesized
+// automatically from their Admin-assigned academic year (see
+// GameContext.tsx's auto-synthesis effect) the moment they sign in, and
+// onboarding is now entirely keyed on that year:
+//   - Year 1: the existing Wand Ceremony, then the existing Sorting Hat
+//     ceremony (their "first day") - both preserved unchanged.
+//   - Year 5: the existing Patronus Charm page, forced once (advanced
+//     magic, taught that year) - unchanged implementation, see
+//     src/pages/Patronus/Patronus.tsx's own gate.
+//   - Every other year: straight to the Portal, no ceremony.
+export type JourneyStage = "wand" | "sorting" | "patronus" | "portal";
 
-export type JourneyStage = "onboarding" | "tutorial" | "dashboard";
-
-// Routes that make up the enrollment -> Common Room onboarding pipeline.
-// `/character` is intentionally excluded: it's also a permanent nav link
-// (see navItems.ts) and already handles the "no player yet" case itself.
-// `/patronus` is deliberately NOT here - it's a Year 5+ Portal feature, not
-// onboarding, so it falls through to the ordinary "protected territory"
-// bucket below and is only reachable once onboarding is fully complete.
-const ONBOARDING_PATHS = new Set([
-  "/create-character",
-  "/acceptance-letter",
-  "/wand",
-  "/hogwarts-express",
-  "/sorting",
-  "/common-room",
-]);
-
-// Reachable with no session at all - the only paths a signed-out visitor
-// can ever land on.
 const PUBLIC_PATHS = new Set(["/", "/authenticate", "/sign-in", "/create-account"]);
 
-// Needs a session, but - unlike everything else - not gated on onboarding
-// progress: `/character` is shown mid-pipeline (right after the Common Room
-// introduction, before Tutorial) as well as afterward as a permanent nav link.
-const AUTH_ONLY_PATHS = new Set(["/character"]);
+const STAGE_PATH: Record<JourneyStage, string | null> = {
+  wand: "/wand",
+  sorting: "/sorting",
+  patronus: "/patronus",
+  portal: null,
+};
 
-// `pipelineComplete` means the character exists AND has been all the way
-// through onboarding (sorted, wanded, welcomed into their house's Common
-// Room) - not just that a character record exists. The character is
-// created in state right after the identity step, before the rest of the
-// pipeline runs, so "a character exists" alone doesn't mean onboarding is
-// done.
-export function getJourneyStage(pipelineComplete: boolean, tutorialCompleted: boolean): JourneyStage {
-  if (!pipelineComplete) return "onboarding";
-  if (!tutorialCompleted) return "tutorial";
-  return "dashboard";
+export function getJourneyStage(character: Character): JourneyStage {
+  if (character.year === 1) {
+    if (!character.wand) return "wand";
+    if (!character.sortingCompleted) return "sorting";
+  }
+  if (character.year === 5 && !character.patronus) return "patronus";
+  return "portal";
 }
 
 /**
- * Given the current path and the player's progress, returns the path they
- * should be redirected to, or `null` if they're already where they belong.
+ * Given the current path and the signed-in student's Character, returns the
+ * path they should be redirected to, or `null` if they're already where
+ * they belong.
  *
- * A character can only ever be created while signed in, so authentication
- * is checked before anything else: every route except the public
- * (pre-account) ones requires a session, full stop - no carve-out for a
- * pre-existing local character. Anything not explicitly known as an
- * onboarding path, `/tutorial`, or `/character` is treated as protected
- * "Portal" territory (e.g. everything under `GameLayout`, including
- * `/patronus`) - new pages added there are protected by default.
+ * A Character can only ever exist while signed in, so authentication is
+ * checked before anything else: every route except the public (pre-account)
+ * ones requires a session. `character === null` while signed in means the
+ * auto-synthesis effect in GameContext.tsx hasn't resolved yet - this
+ * returns `null` (stay put) rather than redirecting, since JourneyGate
+ * itself blanks the render for that brief window instead (see
+ * `cloudCheckComplete`).
  */
 export function resolveJourneyRedirect(
   pathname: string,
-  pipelineComplete: boolean,
-  tutorialCompleted: boolean,
+  character: Character | null,
   isAuthenticated: boolean
 ): string | null {
   if (PUBLIC_PATHS.has(pathname)) return null;
   if (!isAuthenticated) return "/authenticate";
-  if (AUTH_ONLY_PATHS.has(pathname)) return null;
+  if (!character) return null;
 
-  const stage = getJourneyStage(pipelineComplete, tutorialCompleted);
+  const stage = getJourneyStage(character);
+  const requiredPath = STAGE_PATH[stage];
+  if (requiredPath) return pathname === requiredPath ? null : requiredPath;
 
-  if (ONBOARDING_PATHS.has(pathname)) {
-    if (stage === "onboarding") return null;
-    // Route through `/tutorial` rather than `/dashboard`: Common Room
-    // finalizes onboarding (sets `commonRoomIntroViewed`) and calls
-    // navigate("/tutorial") in the same tick, so redirecting here to the
-    // same destination avoids a race where this gate's own redirect
-    // (reacting to the just-updated character before the router has
-    // applied that pending navigation) would otherwise win and skip ahead.
-    return stage === "tutorial" ? "/tutorial" : "/dashboard";
-  }
-
-  if (pathname === "/tutorial") {
-    if (stage === "tutorial") return null;
-    return stage === "onboarding" ? "/create-character" : "/dashboard";
-  }
-
-  // Protected Portal territory (Dashboard, Spells, Patronus, etc.).
-  if (stage === "dashboard") return null;
-  return stage === "onboarding" ? "/create-character" : "/tutorial";
+  // stage === "portal": /wand and /sorting are Year-1-only, now finished
+  // (or never applicable) - never revisit them. /patronus is deliberately
+  // NOT blocked here: it keeps its own existing page-level gate (locked
+  // below Year 5, shows the saved result once set) and stays reachable any
+  // time for Year 5+, exactly as before this change - only the *forced*
+  // trip there above (while `stage === "patronus"`) is new.
+  if (pathname === "/wand" || pathname === "/sorting") return "/dashboard";
+  return null;
 }

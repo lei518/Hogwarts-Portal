@@ -2,6 +2,7 @@ import {
   createContext,
   useContext,
   useEffect,
+  useRef,
   useState,
   type ReactNode,
 } from "react";
@@ -11,12 +12,9 @@ import {
   supabaseConfigured,
   fetchProfile,
   createProfile,
-  updateProfileName,
   type CloudProfile,
   type UserRole,
 } from "../services/supabase";
-
-type RenameResult = { success: true } | { success: false; nextEligibleAt: Date };
 
 // Authentication Foundation (Phase 6A) - `role`/`active` are derived
 // accessors over `profile`, not separate state: Supabase (via `profile`)
@@ -35,10 +33,14 @@ interface AuthContextValue {
   signIn: (email: string, password: string) => Promise<{ error: string | null }>;
   signUp: (displayName: string, email: string, password: string) => Promise<{ error: string | null }>;
   signOut: () => Promise<void>;
-  renameDisplayName: (newName: string) => Promise<RenameResult>;
+  // University Portal Pivot (Phase 6N) - replaces the old display-name
+  // rename flow entirely; a student/professor's own account password
+  // change, via Supabase Auth directly (see changePassword's own comment
+  // on why re-authentication is the verification step).
+  changePassword: (currentPassword: string, newPassword: string) => Promise<{ error: string | null }>;
 }
 
-const COOLDOWN_MS = 15 * 24 * 60 * 60 * 1000;
+const MIN_PASSWORD_LENGTH = 8;
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
@@ -53,6 +55,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // RoleGate act on an as-yet-unconfirmed "signed out" state. Not exposed
   // on AuthContextValue; it's sequencing plumbing, not authentication state.
   const [sessionResolved, setSessionResolved] = useState(false);
+  // Bug fix ("We Can't Find Your Portal" flashing before routing away
+  // correctly): tracks which user id `profile` (or an in-flight fetch for
+  // it) actually corresponds to. `setUser` and the profile-fetch effect
+  // below live in two different effects, so there is otherwise a real gap
+  // between "user just changed" and "the effect noticed and set `loading`
+  // back to true" - React commits at least one render in between where
+  // `user` already reflects the freshly signed-in account but `loading`
+  // is still the stale `false` from before, and `role` is still whatever
+  // (or nothing) the previous session had. RoleGate reads exactly that
+  // render and can flash /access-error before the real fetch has even
+  // started - not a missing profile, a timing gap. Fixed by setting
+  // `loading` synchronously in the SAME callback that sets `user`
+  // whenever the user id actually changes, so React batches both into one
+  // render - `loading` is never stale-false for a user whose profile
+  // hasn't been resolved yet.
+  const resolvedForUserId = useRef<string | null>(null);
 
   useEffect(() => {
     if (!supabase) {
@@ -62,12 +80,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     supabase.auth.getSession().then(({ data }) => {
-      setUser(data.session?.user ?? null);
+      const nextUser = data.session?.user ?? null;
+      if (nextUser && nextUser.id !== resolvedForUserId.current) {
+        setLoading(true);
+      }
+      setUser(nextUser);
       setSessionResolved(true);
     });
 
     const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null);
+      const nextUser = session?.user ?? null;
+      if (nextUser && nextUser.id !== resolvedForUserId.current) {
+        setLoading(true);
+      }
+      setUser(nextUser);
     });
 
     return () => listener.subscription.unsubscribe();
@@ -77,21 +103,68 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // role-based routing needs both settled before it can safely act, and a
   // profile fetch on today's seed-sized `profiles` table is the only
   // "real" network round trip anywhere in this authentication flow.
+  //
+  // Bug fix ("We Can't Find Your Portal" for valid accounts): this fetch
+  // races an independent write. signUp() below inserts the profiles row
+  // AFTER supabase.auth.signUp() resolves - but that same call is what
+  // fires the onAuthStateChange listener that sets `user` here, which
+  // immediately re-triggers this effect. There is no ordering guarantee
+  // between "this SELECT runs" and "signUp()'s INSERT commits", so the
+  // very first fetch for a brand-new account can genuinely find no row
+  // yet and resolve `null` - which is exactly what sends someone to
+  // /access-error despite having a perfectly valid account. A `null`
+  // result is retried a few times with a short delay before it's treated
+  // as "no profile"; this self-heals the ordinary signup race (the row
+  // always appears within milliseconds) while still correctly landing on
+  // /access-error for a genuinely orphaned account. This also now catches
+  // a thrown error (a transient network failure, say) instead of leaving
+  // `loading` stuck true forever with no `.catch()`.
   useEffect(() => {
     if (!sessionResolved) return;
     if (!user) {
+      resolvedForUserId.current = null;
       setProfile(null);
       setLoading(false);
       return;
     }
+    // Supabase fires onAuthStateChange with a brand-new `user` object on
+    // every event (token refresh included), even for the account already
+    // signed in - already resolved for this exact id, so there's nothing
+    // to redo (and `loading` was never sent back to `true` for it above).
+    if (resolvedForUserId.current === user.id) return;
+
     let cancelled = false;
     setLoading(true);
-    fetchProfile(user.id).then((p) => {
+
+    async function loadProfile(userId: string) {
+      const maxAttempts = 3;
+      for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+        const fetched = await fetchProfile(userId);
+        if (cancelled) return;
+        if (fetched) {
+          resolvedForUserId.current = userId;
+          setProfile(fetched);
+          setLoading(false);
+          return;
+        }
+        if (attempt < maxAttempts) {
+          await new Promise((resolve) => setTimeout(resolve, 400));
+          if (cancelled) return;
+        }
+      }
+      resolvedForUserId.current = userId;
+      setProfile(null);
+      setLoading(false);
+    }
+
+    loadProfile(user.id).catch(() => {
       if (!cancelled) {
-        setProfile(p);
+        resolvedForUserId.current = user.id;
+        setProfile(null);
         setLoading(false);
       }
     });
+
     return () => {
       cancelled = true;
     };
@@ -131,20 +204,39 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await supabase.auth.signOut();
   }
 
-  async function renameDisplayName(newName: string): Promise<RenameResult> {
-    if (!user) throw new Error("Not signed in.");
-    try {
-      const updated = await updateProfileName(user.id, newName);
-      setProfile(updated);
-      return { success: true };
-    } catch {
-      // The trigger rolled back the update; re-fetch the still-current row so the
-      // eligible-again date comes from Supabase, not client-side guesswork.
-      const current = await fetchProfile(user.id);
-      if (current) setProfile(current);
-      const lastChange = current ? new Date(current.lastNameChangeAt) : new Date();
-      return { success: false, nextEligibleAt: new Date(lastChange.getTime() + COOLDOWN_MS) };
+  // University Portal Pivot (Phase 6N) - a signed-in user changing their
+  // own password. This never needs service_role or an Edge Function: it's
+  // the caller's own account, and supabase.auth.updateUser() operates on
+  // whichever session is currently active. Supabase's updateUser() call
+  // itself doesn't ask for (or verify) the current password, so that
+  // verification step is done explicitly here first, by re-authenticating
+  // with it via signInWithPassword - if that fails, the current password
+  // was wrong and updateUser() is never called. Neither password is ever
+  // persisted anywhere client-side; both only ever pass through to these
+  // two Supabase Auth calls.
+  async function changePassword(
+    currentPassword: string,
+    newPassword: string
+  ): Promise<{ error: string | null }> {
+    if (!supabase) return { error: "Supabase is not configured." };
+    if (!user?.email) return { error: "Not signed in." };
+    if (newPassword.length < MIN_PASSWORD_LENGTH) {
+      return { error: `New password must be at least ${MIN_PASSWORD_LENGTH} characters.` };
     }
+
+    const { error: verifyError } = await supabase.auth.signInWithPassword({
+      email: user.email,
+      password: currentPassword,
+    });
+    if (verifyError) {
+      return { error: "Current password is incorrect." };
+    }
+
+    const { error: updateError } = await supabase.auth.updateUser({ password: newPassword });
+    if (updateError) {
+      return { error: updateError.message };
+    }
+    return { error: null };
   }
 
   return (
@@ -159,7 +251,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         signIn,
         signUp,
         signOut,
-        renameDisplayName,
+        changePassword,
       }}
     >
       {children}

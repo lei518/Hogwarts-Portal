@@ -1,7 +1,11 @@
-import { ShieldCheck, ScrollText } from "lucide-react";
+import { ShieldCheck, ScrollText, UserCog } from "lucide-react";
 import { useAdminScope } from "../../utils/adminScope";
+import { useAuth } from "../../context/AuthContext";
+import { Button } from "../../components/ui/Button";
+import { Card } from "../../components/ui/Card";
 import { ProfileSection, ProfileField } from "../../components/character/ProfileSection";
 import { LoadingState } from "../../components/ui/LoadingState";
+import { PageHeader } from "../../components/ui/PageHeader";
 
 // Canonical owner of this admin's Admin Portal identity - see
 // CLAUDE.md's Admin Portal section. Standalone, unlike ProfessorProfile:
@@ -11,8 +15,14 @@ import { LoadingState } from "../../components/ui/LoadingState";
 // (in turn from AuthenticatedAdminContext), the signed-in administrator's
 // own identity - see that context's comment on how it's resolved and what
 // a non-matched administrator sees instead.
+//
+// Session Management (Phase 6K): this is the Admin Portal's own
+// "user/profile" area, so Sign Out lives here - same signOut() from
+// AuthContext as the Student Portal's AccountSection and the Professor
+// Portal's Profile page, no separate logout logic.
 export function AdminProfilePage() {
   const { profile: admin, loading } = useAdminScope();
+  const { signOut } = useAuth();
 
   if (loading) {
     return (
@@ -32,27 +42,32 @@ export function AdminProfilePage() {
 
   return (
     <div className="px-4 md:px-8 py-6 md:py-8 max-w-3xl mx-auto flex flex-col gap-5">
-      <section className="border border-parchment-dim/20 rounded-sm px-6 py-6">
-        <p className="text-parchment-dim text-xs uppercase tracking-[0.2em] mb-1">{admin.department}</p>
-        <h1 className="text-2xl md:text-3xl font-display text-gold-bright mb-3">{admin.displayName}</h1>
+      <PageHeader
+        title={admin.displayName}
+        description={admin.department}
+        icon={UserCog}
+        action={
+          <Button variant="secondary" size="sm" onClick={signOut}>
+            Sign Out
+          </Button>
+        }
+      />
+
+      <Card as="section" className="px-6 py-6">
         <p className="text-parchment text-sm leading-relaxed mb-5">{admin.bio}</p>
         <div className="grid grid-cols-2 gap-4">
           <ProfileField label="Title" value={admin.title} />
           <ProfileField label="Department" value={admin.department} />
         </div>
-      </section>
+      </Card>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <ProfileSection title="Security" icon={ShieldCheck}>
-          <p className="text-parchment-dim text-sm">
-            Two-factor authentication and session management will be available here once real accounts exist.
-          </p>
+        <ProfileSection title="Account Security" icon={ShieldCheck}>
+          <p className="text-parchment-dim text-sm">Manage your account preferences and privacy settings.</p>
         </ProfileSection>
 
         <ProfileSection title="Activity Log" icon={ScrollText}>
-          <p className="text-parchment-dim text-sm">
-            A record of this admin's own actions will be available here in a future milestone.
-          </p>
+          <p className="text-parchment-dim text-sm">A running log of this administrator's own actions.</p>
         </ProfileSection>
       </div>
     </div>

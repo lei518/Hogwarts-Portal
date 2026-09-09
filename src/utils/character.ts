@@ -1,12 +1,7 @@
-import { DEFAULT_HOUSE_POINTS, type GameState, type Trait } from "../types/game";
+import { DEFAULT_HOUSE_POINTS, type GameState, type House, type Trait } from "../types/game";
 import { DEFAULT_APPEARANCE, type Appearance, type Character, type Gender } from "../types/character";
 
 const STARTING_YEAR = 1;
-const STARTING_LEVEL = 1;
-const STARTING_XP = 0;
-const STARTING_XP_TO_NEXT_LEVEL = 100;
-const STARTING_COINS = 0;
-const STARTING_HEALTH = 100;
 const STARTING_ENERGY = 100;
 
 export interface CreateCharacterInput {
@@ -18,6 +13,12 @@ export interface CreateCharacterInput {
   appearance?: Appearance;
   traits?: Trait[];
   year?: number;
+  // Year-Based Onboarding (Phase 6L) - set only for an already-enrolled
+  // (Year 2-7) student whose house the Admin assigned at account creation;
+  // a Year 1 student's house comes from the Sorting Hat instead, so this
+  // stays undefined for them and `createInitialCharacter` leaves
+  // `house: null` from getCharacterDefaults().
+  house?: House;
 }
 
 // Every field a Character can have beyond bare identity, with its safe
@@ -33,12 +34,6 @@ function getCharacterDefaults(): Omit<Character, "firstName" | "lastName" | "nic
     traits: [],
 
     year: STARTING_YEAR,
-    level: STARTING_LEVEL,
-    xp: STARTING_XP,
-    xpToNextLevel: STARTING_XP_TO_NEXT_LEVEL,
-    coins: STARTING_COINS,
-    health: STARTING_HEALTH,
-    maxHealth: STARTING_HEALTH,
     energy: STARTING_ENERGY,
     maxEnergy: STARTING_ENERGY,
     knowledge: 0,
@@ -48,7 +43,6 @@ function getCharacterDefaults(): Omit<Character, "firstName" | "lastName" | "nic
     bloodStatus: null,
     patronus: null,
 
-    inventory: [],
     spellbook: [],
     potionProgress: {},
     quests: [],
@@ -59,16 +53,10 @@ function getCharacterDefaults(): Omit<Character, "firstName" | "lastName" | "nic
     bookmarkedBooks: [],
     housePoints: { ...DEFAULT_HOUSE_POINTS },
     housePointAwards: [],
-    owlPost: [],
     personalNotes: [],
     reminders: [],
-    assignmentSubmissions: {},
 
-    acceptanceLetterViewed: false,
-    expressJourneyViewed: false,
     sortingCompleted: false,
-    commonRoomIntroViewed: false,
-    tutorialCompleted: false,
   };
 }
 
@@ -76,6 +64,12 @@ function getCharacterDefaults(): Omit<Character, "firstName" | "lastName" | "nic
 // supplied gets the "immediately after registration" default: identity
 // fields fall back to a sensible placeholder, house/wand/patronus stay
 // null until the player unlocks them, and every collection starts empty.
+//
+// Year-Based Onboarding (Phase 6L): there is no more Character Creation
+// page calling this by hand - it's called once, automatically, by
+// GameContext.tsx's auto-synthesis effect, fed from the signed-in
+// student's own AuthContext profile (display name split into
+// firstName/lastName, Admin-assigned year, and - for Year 2-7 - house).
 export function createInitialCharacter(input: CreateCharacterInput): Character {
   return {
     ...getCharacterDefaults(),
@@ -87,17 +81,18 @@ export function createInitialCharacter(input: CreateCharacterInput): Character {
     appearance: input.appearance ?? DEFAULT_APPEARANCE,
     traits: input.traits ?? [],
     year: input.year ?? STARTING_YEAR,
+    house: input.house ?? null,
     createdAt: new Date().toISOString(),
   };
 }
 
 // Normalizes a character loaded from localStorage or Supabase to the
 // current schema. Older saves predate fields added by later milestones
-// (owlPost, assignmentSubmissions, housePointAwards, personalNotes,
-// reminders, ...) and simply don't have that key - every missing field
-// gets its default here, once, so every other consumer in the app
-// (`character.owlPost.map(...)`, etc.) can keep assuming the field exists
-// rather than defending itself with `?.`/`?? []` at every call site.
+// (housePointAwards, personalNotes, reminders, ...) and simply don't have
+// that key - every missing field gets its default here, once, so every
+// other consumer in the app (`character.housePointAwards.map(...)`, etc.)
+// can keep assuming the field exists rather than defending itself with
+// `?.`/`?? []` at every call site.
 // Returns null if `raw` isn't recognizable as a character at all.
 export function migrateCharacter(raw: Partial<Character> | null | undefined): Character | null {
   if (!raw || typeof raw.firstName !== "string" || typeof raw.lastName !== "string") {
@@ -125,6 +120,23 @@ export function hydrateGameState(state: GameState | null): GameState | null {
 
 export function getFullName(character: Pick<Character, "firstName" | "lastName">): string {
   return `${character.firstName} ${character.lastName}`.trim();
+}
+
+const YEAR_ORDINALS = ["1st", "2nd", "3rd", "4th", "5th", "6th", "7th"];
+
+export function formatYearOrdinal(year: number): string {
+  return YEAR_ORDINALS[year - 1] ?? `${year}th`;
+}
+
+// Phase 3 - Profile Cleanup: not a fabricated ID - deterministically derived
+// from the student's real Supabase account (their own account creation
+// year + a stable slice of their own real user id), the same way a real
+// university's ID is an opaque code derived from an internal record rather
+// than a second one re-entered by hand.
+export function getStudentId(character: Pick<Character, "createdAt">, userId: string): string {
+  const admissionYear = new Date(character.createdAt).getFullYear();
+  const shortId = userId.replace(/-/g, "").slice(0, 6).toUpperCase();
+  return `HU-${admissionYear}-${shortId}`;
 }
 
 // The creation form and the account-rename flow both still collect a

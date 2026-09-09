@@ -1,24 +1,26 @@
 import { useGame } from "../../../context/GameContext";
-import { getAcademicStanding } from "../../../utils/grades";
+import { useAcademicData } from "../../../context/AcademicDataContext";
+import { getAcademicSummary } from "../../../utils/grades";
 import { DashboardWidget } from "../DashboardWidget";
 
-// Phase 2 Integration Layer: reads the same computed aggregate
-// AcademicStanding.tsx already reads - Grades stays the one place this
-// logic lives, this widget only previews it (see CLAUDE.md's Home-vs-page
-// preview pattern).
+// Phase 2 - Academic Standing folded into Grades (see CLAUDE.md's
+// Academics section) - this widget previews Grades' own header summary,
+// same "Home previews, the owning page manages" pattern as every other
+// Dashboard widget.
 export function AcademicStandingWidget() {
   const { state } = useGame();
   const { character } = state;
+  const { courses } = useAcademicData();
 
   if (!character) return null;
 
-  const standing = getAcademicStanding(character);
+  const summary = getAcademicSummary(character, courses);
 
   return (
-    <DashboardWidget title="Academic Standing" to="/academic-standing" actionLabel="View Standing">
-      <p className="text-parchment text-sm mb-1">{standing.standing}</p>
+    <DashboardWidget title="Academic Standing" to="/grades" actionLabel="View Grades">
+      <p className="text-parchment text-sm mb-1">{summary.standing}</p>
       <p className="text-parchment-dim text-xs">
-        {standing.coursesCompleted} completed &middot; {standing.coursesInProgress} in progress
+        {summary.coursesCompleted} completed &middot; {summary.coursesInProgress} in progress
       </p>
     </DashboardWidget>
   );

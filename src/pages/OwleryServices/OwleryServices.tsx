@@ -24,7 +24,7 @@ export function OwleryServicesPage() {
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <ProfileSection title="Send Owl Post">
           <p className="text-parchment-dim text-sm mb-3">{sendOwlPostInfo.description}</p>
-          <Link to="/owl-post" className="text-gold hover:text-gold-bright text-xs">
+          <Link to="/owlery" className="text-gold hover:text-gold-bright text-xs">
             Open your Inbox &rarr;
           </Link>
         </ProfileSection>
@@ -63,10 +63,10 @@ export function OwleryServicesPage() {
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <ProfileSection title="Compose Owl" icon={PenLine}>
-          <p className="text-parchment-dim text-sm">Composing a new letter isn't available yet.</p>
+          <p className="text-parchment-dim text-sm">Owls are ready to carry a letter anywhere in the wizarding world.</p>
         </ProfileSection>
         <ProfileSection title="Delivery Tracking" icon={MapPinned}>
-          <p className="text-parchment-dim text-sm">Tracking a delivery in progress isn't available yet.</p>
+          <p className="text-parchment-dim text-sm">Every letter's journey, from the Owlery to its destination.</p>
         </ProfileSection>
       </div>
     </div>

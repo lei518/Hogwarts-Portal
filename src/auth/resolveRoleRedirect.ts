@@ -17,19 +17,36 @@ const EXEMPT_PATHS = new Set([
   "/access-error",
 ]);
 
-const ROLE_HOME: Record<UserRole, string> = {
+// Phase 5 - Campus Services: four operational staff roles, each with their
+// own portal at its own path prefix. Exported so SignIn.tsx's post-sign-in
+// redirect can reuse this same map instead of duplicating it.
+export const ROLE_HOME: Record<UserRole, string> = {
   student: "/dashboard",
   professor: "/professor/dashboard",
   admin: "/admin/dashboard",
+  librarian: "/librarian/dashboard",
+  healer: "/healer/dashboard",
+  caretaker: "/caretaker/dashboard",
+  deputy_headmaster: "/deputy-headmaster/dashboard",
 };
 
-// Everything under /professor or /admin belongs to that portal; everything
+const PORTAL_PATH_PREFIXES: Record<string, UserRole> = {
+  "/professor": "professor",
+  "/admin": "admin",
+  "/librarian": "librarian",
+  "/healer": "healer",
+  "/caretaker": "caretaker",
+  "/deputy-headmaster": "deputy_headmaster",
+};
+
+// Everything under a known staff prefix belongs to that portal; everything
 // else (onboarding, /dashboard, /courses, ...) is Student territory - the
 // same "anything not explicitly claimed is protected by default" posture
 // getJourneyStage.ts already uses for its own "Portal territory" bucket.
 function portalForPath(pathname: string): UserRole | null {
-  if (pathname === "/professor" || pathname.startsWith("/professor/")) return "professor";
-  if (pathname === "/admin" || pathname.startsWith("/admin/")) return "admin";
+  for (const [prefix, role] of Object.entries(PORTAL_PATH_PREFIXES)) {
+    if (pathname === prefix || pathname.startsWith(`${prefix}/`)) return role;
+  }
   return null;
 }
 

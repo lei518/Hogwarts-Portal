@@ -1,6 +1,5 @@
 import type {
   House,
-  InventoryItem,
   Patronus,
   PotionProgress,
   Quest,
@@ -8,9 +7,7 @@ import type {
   Trait,
   Wand,
 } from "./game";
-import type { OwlPostMessage } from "./owlPost";
 import type { HousePointAward, PersonalNote, Reminder } from "./campusLife";
-import type { AssignmentSubmission } from "./academics";
 
 export type Gender = "female" | "male" | "non-binary" | "unspecified";
 
@@ -47,13 +44,12 @@ export interface Character {
   traits: Trait[];
 
   // --- Progression: auto-initialized, advances through play ---
+  // Phase 3 - Profile Cleanup: level/xp/xpToNextLevel/coins/health/maxHealth
+  // are gone (RPG progression/combat stats, not a university identity).
+  // energy/maxEnergy (Spellbook's mana cost) and knowledge (Library's study
+  // reward) stay - both are live inputs to features this phase doesn't
+  // touch, not idle stat-sheet flavor.
   year: number;
-  level: number;
-  xp: number;
-  xpToNextLevel: number;
-  coins: number;
-  health: number;
-  maxHealth: number;
   energy: number;
   maxEnergy: number;
   knowledge: number;
@@ -67,7 +63,6 @@ export interface Character {
   patronus: Patronus | null;
 
   // --- Collections: grow through play, empty/zero at creation ---
-  inventory: InventoryItem[];
   spellbook: SpellProgress[];
   potionProgress: Record<string, PotionProgress>;
   quests: Quest[];
@@ -78,19 +73,20 @@ export interface Character {
   bookmarkedBooks: string[];
   housePoints: Record<House, number>;
   housePointAwards: HousePointAward[];
-  owlPost: OwlPostMessage[];
   personalNotes: PersonalNote[];
   reminders: Reminder[];
-  // Per-student progress, keyed by assignmentId - the Assignment
-  // definitions themselves are shared/professor-authored (data/assignments.ts).
-  assignmentSubmissions: Record<string, AssignmentSubmission>;
+  // Phase 2 - assignment submissions are no longer stored on Character: a
+  // per-student JSONB field is invisible to the professor who needs to
+  // grade it. See the live `assignment_submissions` table
+  // (repositories/submissionsRepository.ts) instead.
 
   // --- Onboarding progress: belongs to this character, not the app ---
-  acceptanceLetterViewed: boolean;
-  expressJourneyViewed: boolean;
+  // Year-Based Onboarding (Phase 6L): Character Creation, Acceptance
+  // Letter, Hogwarts Express, Common Room, and Tutorial are gone - there
+  // is no more multi-step pipeline to track. `sortingCompleted` stays: it
+  // still gates the (preserved) Sorting Hat ceremony for Year 1 students,
+  // now driven by src/journey/getJourneyStage.ts's year-based rules.
   sortingCompleted: boolean;
-  commonRoomIntroViewed: boolean;
-  tutorialCompleted: boolean;
 
   createdAt: string;
 }

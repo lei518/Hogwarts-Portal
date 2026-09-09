@@ -1,7 +1,8 @@
-import { Users, UserSquare, NotebookPen, ListChecks, Trophy, Activity, ScrollText, Inbox, CalendarClock, Package, Scale } from "lucide-react";
+import { Users, UserSquare, UserCheck, NotebookPen, ListChecks, Trophy, Activity, ScrollText, Inbox, CalendarClock, Package, Scale, LayoutDashboard, Megaphone } from "lucide-react";
 import { useAdminAnalytics } from "../../utils/adminAnalytics";
 import { DashboardWidget } from "../../components/dashboard/DashboardWidget";
 import { ProfileSection } from "../../components/character/ProfileSection";
+import { PageHeader } from "../../components/ui/PageHeader";
 
 // Admin Portal Foundation homepage: summaries only, same "widgets, owns no
 // data of its own" rule as every other Dashboard in the portal. Every
@@ -13,10 +14,11 @@ export function AdminDashboardPage() {
 
   return (
     <div className="px-6 md:px-10 py-8 md:py-10 max-w-5xl mx-auto flex flex-col gap-6">
-      <div>
-        <h1 className="text-2xl md:text-3xl font-display text-gold-bright mb-1">🏛️ Admin Dashboard</h1>
-        <p className="text-parchment-dim text-sm">A school-wide overview, computed from existing data.</p>
-      </div>
+      <PageHeader
+        title="Admin Dashboard"
+        description="A school-wide overview, computed from existing data."
+        icon={LayoutDashboard}
+      />
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <DashboardWidget title="Students" icon={Users} to="/admin/students" actionLabel="View Records">
@@ -25,6 +27,19 @@ export function AdminDashboardPage() {
 
         <DashboardWidget title="Professors" icon={UserSquare} to="/admin/professors" actionLabel="View Records">
           <p className="text-parchment text-2xl font-display">{stats.professorCount}</p>
+        </DashboardWidget>
+
+        <DashboardWidget title="Active Accounts" icon={UserCheck} to="/admin/users" actionLabel="Manage Accounts">
+          <p className="text-parchment text-2xl font-display">{stats.activeAccountCount}</p>
+        </DashboardWidget>
+
+        <DashboardWidget title="Announcements" icon={Megaphone} to="/admin/announcements" actionLabel="Manage">
+          <p className="text-parchment text-2xl font-display mb-1">
+            {stats.announcementDraftCount + stats.announcementPublishedCount}
+          </p>
+          <p className="text-parchment-dim text-xs">
+            {stats.announcementPublishedCount} published &middot; {stats.announcementDraftCount} draft
+          </p>
         </DashboardWidget>
 
         <DashboardWidget title="Assignments" icon={NotebookPen}>
@@ -68,17 +83,36 @@ export function AdminDashboardPage() {
         </DashboardWidget>
       </div>
 
+      <ProfileSection title="Recent Announcements" icon={Megaphone}>
+        {stats.recentAnnouncements.length === 0 ? (
+          <p className="text-parchment-dim text-sm">No announcements have been created yet.</p>
+        ) : (
+          <div className="flex flex-col gap-2">
+            {stats.recentAnnouncements.map((announcement) => (
+              <div key={announcement.id} className="flex items-center justify-between gap-3">
+                <p className="text-parchment text-sm truncate">{announcement.title}</p>
+                <span
+                  className={`text-[10px] uppercase tracking-wide px-2 py-0.5 rounded-full border shrink-0 ${
+                    announcement.published
+                      ? "border-pine/40 text-pine bg-pine/10"
+                      : "border-parchment-dim/25 text-parchment-dim"
+                  }`}
+                >
+                  {announcement.published ? "Published" : "Draft"}
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
+      </ProfileSection>
+
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <ProfileSection title="System Health" icon={Activity}>
-          <p className="text-parchment-dim text-sm">
-            Uptime and error monitoring will appear here once there's a real backend to monitor.
-          </p>
+          <p className="text-parchment-dim text-sm">An overview of how school systems are performing.</p>
         </ProfileSection>
 
         <ProfileSection title="Recent Audit Activity" icon={ScrollText}>
-          <p className="text-parchment-dim text-sm">
-            A log of administrative actions will appear here once User Administration supports taking any.
-          </p>
+          <p className="text-parchment-dim text-sm">A running log of administrative actions across the portal.</p>
         </ProfileSection>
       </div>
     </div>

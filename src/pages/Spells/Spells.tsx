@@ -1,132 +1,105 @@
-import { useEffect, useState } from "react";
-import { Lock } from "lucide-react";
-import { useGame } from "../../context/GameContext";
+import { useMemo, useState } from "react";
+import { Link } from "react-router-dom";
+import { Search, Wand2 } from "lucide-react";
 import { spells, spellCategories, type SpellCategory } from "../../data/spells";
-import { Book } from "../../components/ui/Book";
-import { Button } from "../../components/ui/Button";
-import { ProgressBar } from "../../components/ui/ProgressBar";
-import { CastingModal } from "../../components/spells/CastingModal";
-import { getMasteryLevel } from "../../utils/spellMastery";
+import { useGame } from "../../context/GameContext";
+import { Card } from "../../components/ui/Card";
+import { Badge } from "../../components/ui/Badge";
+import { PageHeader } from "../../components/ui/PageHeader";
+import { EmptyState } from "../../components/ui/EmptyState";
 
-const orderedSpells = spellCategories.flatMap((category) =>
-  spells.filter((spell) => spell.category === category)
-);
-
+// Phase 4 - Spell Archive: a searchable reference collection, not a
+// progression system. No difficulty rating, mana cost, or locked state -
+// every spell is browsable regardless of year; `requiredYear` is shown as
+// informational curriculum metadata only.
 export function SpellsPage() {
   const { state } = useGame();
-  const [pageIndex, setPageIndex] = useState(0);
-  const [casting, setCasting] = useState(false);
+  const [search, setSearch] = useState("");
+  const [category, setCategory] = useState<SpellCategory | "All">("All");
 
-  useEffect(() => {
-    function onKeyDown(event: KeyboardEvent) {
-      if (event.key === "ArrowRight") {
-        setPageIndex((i) => Math.min(orderedSpells.length - 1, i + 1));
-      } else if (event.key === "ArrowLeft") {
-        setPageIndex((i) => Math.max(0, i - 1));
+  const filtered = useMemo(() => {
+    return spells.filter((spell) => {
+      if (category !== "All" && spell.category !== category) return false;
+      if (search.trim() && !spell.name.toLowerCase().includes(search.trim().toLowerCase())) {
+        return false;
       }
-    }
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, []);
+      return true;
+    });
+  }, [search, category]);
 
-  if (!state.character) return null;
-  const character = state.character;
-
-  const currentSpell = orderedSpells[pageIndex];
-  const progress = character.spellbook.find((s) => s.spellId === currentSpell.id);
-  const mastery = progress?.mastery ?? 0;
-  const unlocked = currentSpell.requiredYear <= character.year || progress?.unlocked === true;
-
-  function goToCategory(category: SpellCategory) {
-    const index = orderedSpells.findIndex((s) => s.category === category);
-    if (index >= 0) setPageIndex(index);
-  }
+  const studiedIds = new Set(
+    (state.character?.spellbook ?? []).filter((s) => s.studied).map((s) => s.spellId)
+  );
 
   return (
-    <div className="px-4 md:px-8 py-6 md:py-8 max-w-4xl mx-auto">
-      <h1 className="text-2xl md:text-3xl font-display text-gold-bright mb-6">🪄 Spellbook</h1>
+    <div className="px-4 md:px-8 py-6 md:py-8 max-w-5xl mx-auto">
+      <PageHeader
+        title="Spell Archive"
+        description="Search and study the spells taught at Hogwarts."
+        icon={Wand2}
+      />
+
+      <div className="flex flex-col sm:flex-row gap-3 my-6">
+        <div className="relative flex-1">
+          <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-parchment-dim/60" />
+          <input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search spells..."
+            aria-label="Search spells"
+            className="w-full bg-void/50 border border-parchment-dim/30 rounded-md pl-10 pr-4 py-2.5 text-parchment placeholder:text-parchment-dim/50 focus:border-gold outline-none"
+          />
+        </div>
+      </div>
 
       <div className="flex flex-wrap gap-2 mb-6">
-        {spellCategories.map((category) => (
+        <button
+          onClick={() => setCategory("All")}
+          className={`text-xs uppercase tracking-wide px-3 py-1.5 rounded-full border transition-colors ${
+            category === "All"
+              ? "border-gold text-gold-bright bg-gold/10"
+              : "border-parchment-dim/25 text-parchment-dim hover:border-gold/50"
+          }`}
+        >
+          All
+        </button>
+        {spellCategories.map((c) => (
           <button
-            key={category}
-            onClick={() => goToCategory(category)}
-            aria-pressed={currentSpell.category === category}
-            className={`px-3 py-1.5 text-xs uppercase tracking-wide rounded-sm border transition-colors ${
-              currentSpell.category === category
+            key={c}
+            onClick={() => setCategory(c)}
+            className={`text-xs uppercase tracking-wide px-3 py-1.5 rounded-full border transition-colors ${
+              category === c
                 ? "border-gold text-gold-bright bg-gold/10"
                 : "border-parchment-dim/25 text-parchment-dim hover:border-gold/50"
             }`}
           >
-            {category}
+            {c}
           </button>
         ))}
       </div>
 
-      <Book
-        transitionKey={currentSpell.id}
-        pageLabel={`Page ${pageIndex + 1} of ${orderedSpells.length}`}
-        canPrev={pageIndex > 0}
-        canNext={pageIndex < orderedSpells.length - 1}
-        onPrev={() => setPageIndex((i) => Math.max(0, i - 1))}
-        onNext={() => setPageIndex((i) => Math.min(orderedSpells.length - 1, i + 1))}
-        left={
-          <>
-            <p className="text-xs uppercase tracking-wide text-parchment-dim mb-2">
-              {currentSpell.category}
-            </p>
-            <h2 className="font-display text-3xl text-gold-bright mb-2">{currentSpell.name}</h2>
-            <p className="text-parchment-dim italic text-sm mb-6">"{currentSpell.incantation}"</p>
+      <p className="text-parchment-dim text-sm mb-4">
+        {filtered.length} spell{filtered.length !== 1 ? "s" : ""}
+      </p>
 
-            <div className="mt-auto flex flex-col gap-2 text-sm">
-              <Row
-                label="Difficulty"
-                value={"★".repeat(currentSpell.difficulty) + "☆".repeat(5 - currentSpell.difficulty)}
-              />
-              <Row label="Mana Cost" value={String(currentSpell.manaCost)} />
-              <Row label="Unlocks" value={`Year ${currentSpell.requiredYear}`} />
-            </div>
-          </>
-        }
-        right={
-          unlocked ? (
-            <>
-              <p className="text-parchment-dim text-sm leading-relaxed mb-6">
-                {currentSpell.description}
-              </p>
-
-              <div className="mt-auto">
-                <div className="mb-4">
-                  <ProgressBar value={mastery} label={getMasteryLevel(mastery)} colorClass="bg-gold" />
+      {filtered.length === 0 ? (
+        <EmptyState icon={Search} message="No spells match your search." />
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+          {filtered.map((spell) => (
+            <Link key={spell.id} to={`/spells/${spell.id}`}>
+              <Card interactive className="px-5 py-4 h-full flex flex-col">
+                <div className="flex items-start justify-between gap-2 mb-1">
+                  <p className="font-display text-lg text-parchment">{spell.name}</p>
+                  {studiedIds.has(spell.id) && <Badge tone="emerald">Studied</Badge>}
                 </div>
-                <Button onClick={() => setCasting(true)} className="w-full">
-                  Cast
-                </Button>
-              </div>
-            </>
-          ) : (
-            <div className="flex-1 flex flex-col items-center justify-center text-center gap-3">
-              <Lock size={28} className="text-parchment-dim" />
-              <p className="text-parchment-dim text-sm">
-                This page is sealed until Year {currentSpell.requiredYear}.
-              </p>
-            </div>
-          )
-        }
-      />
-
-      {casting && (
-        <CastingModal spell={currentSpell} mastery={mastery} onClose={() => setCasting(false)} />
+                <Badge className="w-fit mb-2">{spell.category}</Badge>
+                <p className="text-parchment-dim text-sm">{spell.description}</p>
+              </Card>
+            </Link>
+          ))}
+        </div>
       )}
-    </div>
-  );
-}
-
-function Row({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="flex justify-between border-b border-parchment-dim/10 pb-2">
-      <span className="text-parchment-dim">{label}</span>
-      <span className="text-parchment">{value}</span>
     </div>
   );
 }

@@ -1,5 +1,3 @@
-import type { InventoryItem } from "../types/game";
-
 export interface ChoiceRequirement {
   type: "spell" | "relationship" | "knowledge";
   id?: string; // spellId, or studentId for relationship
@@ -12,7 +10,6 @@ export interface AdventureReward {
   housePoints?: number;
   knowledge?: number;
   relationshipChanges?: { studentId: string; delta: number }[];
-  inventoryItem?: { name: string; category: InventoryItem["category"]; quantity: number };
   unlocksSpellId?: string;
   unlocksLocationId?: string;
 }
@@ -164,7 +161,6 @@ export const adventures: Adventure[] = [
         reward: {
           xp: 30,
           knowledge: 20,
-          inventoryItem: { name: "An Ancient Spellbook", category: "Book", quantity: 1 },
           unlocksSpellId: "protego",
         },
         isEnding: true,

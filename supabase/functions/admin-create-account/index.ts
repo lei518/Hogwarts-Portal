@@ -31,11 +31,18 @@
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import { corsHeaders } from "../_shared/cors.ts";
 
-const ALLOWED_ROLES = ["student", "professor", "admin"] as const;
+const ALLOWED_ROLES = ["student", "professor", "admin", "librarian", "healer", "caretaker", "deputy_headmaster"] as const;
 type AllowedRole = (typeof ALLOWED_ROLES)[number];
 
 function isAllowedRole(value: unknown): value is AllowedRole {
   return typeof value === "string" && (ALLOWED_ROLES as readonly string[]).includes(value);
+}
+
+const ALLOWED_HOUSES = ["Gryffindor", "Hufflepuff", "Ravenclaw", "Slytherin"] as const;
+type AllowedHouse = (typeof ALLOWED_HOUSES)[number];
+
+function isAllowedHouse(value: unknown): value is AllowedHouse {
+  return typeof value === "string" && (ALLOWED_HOUSES as readonly string[]).includes(value);
 }
 
 function jsonResponse(body: unknown, status: number): Response {
@@ -90,7 +97,14 @@ Deno.serve(async (req: Request) => {
     return jsonResponse({ error: "Only an active administrator can create accounts." }, 403);
   }
 
-  let payload: { displayName?: unknown; email?: unknown; password?: unknown; role?: unknown };
+  let payload: {
+    displayName?: unknown;
+    email?: unknown;
+    password?: unknown;
+    role?: unknown;
+    year?: unknown;
+    house?: unknown;
+  };
   try {
     payload = await req.json();
   } catch {
@@ -108,9 +122,37 @@ Deno.serve(async (req: Request) => {
     return jsonResponse({ error: "Temporary password must be at least 8 characters." }, 400);
   }
   if (!isAllowedRole(payload.role)) {
-    return jsonResponse({ error: "Role must be student, professor, or admin." }, 400);
+    return jsonResponse({ error: `Role must be one of: ${ALLOWED_ROLES.join(", ")}.` }, 400);
   }
   const role = payload.role;
+
+  // Year-Based Onboarding (Phase 6L) - `year` drives which onboarding
+  // ceremony (if any) the student sees on first login (see
+  // src/journey/getJourneyStage.ts); `house` is only meaningful for an
+  // already-enrolled (Year 2-7) student - a Year 1 student's house comes
+  // from the existing Sorting Hat ceremony instead, never from the admin.
+  let year: number | null = null;
+  let house: AllowedHouse | null = null;
+
+  if (role === "student") {
+    if (typeof payload.year !== "number" || !Number.isInteger(payload.year) || payload.year < 1 || payload.year > 7) {
+      return jsonResponse({ error: "Academic year (1-7) is required for a student account." }, 400);
+    }
+    year = payload.year;
+
+    if (year === 1) {
+      if (payload.house !== undefined && payload.house !== null) {
+        return jsonResponse({ error: "Year 1 students receive their house from the Sorting Hat, not here." }, 400);
+      }
+    } else {
+      if (!isAllowedHouse(payload.house)) {
+        return jsonResponse({ error: "House is required for a Year 2-7 student account." }, 400);
+      }
+      house = payload.house;
+    }
+  } else if (payload.year !== undefined || payload.house !== undefined) {
+    return jsonResponse({ error: "Academic year and house only apply to student accounts." }, 400);
+  }
 
   // Privileged client - service_role, held only in this server-side
   // environment, never returned to or reachable from the browser.
@@ -131,7 +173,7 @@ Deno.serve(async (req: Request) => {
 
   const { error: profileError } = await adminClient
     .from("profiles")
-    .insert({ user_id: created.user.id, display_name: displayName, role, active: true });
+    .insert({ user_id: created.user.id, display_name: displayName, role, active: true, year, house });
 
   if (profileError) {
     // Do not leave an orphaned Auth user with no profile row - undo the
@@ -140,5 +182,5 @@ Deno.serve(async (req: Request) => {
     return jsonResponse({ error: `Account was not created: ${profileError.message}` }, 500);
   }
 
-  return jsonResponse({ userId: created.user.id, displayName, role }, 200);
+  return jsonResponse({ userId: created.user.id, displayName, role, year, house }, 200);
 });

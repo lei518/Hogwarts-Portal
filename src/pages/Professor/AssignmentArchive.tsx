@@ -1,11 +1,14 @@
 import { Link } from "react-router-dom";
-import { Copy } from "lucide-react";
+import { Copy, Archive } from "lucide-react";
 import { useProfessorAssignments } from "../../context/ProfessorAssignmentsContext";
 import { useProfessorScope } from "../../utils/professorScope";
 import { getCourse } from "../../data/courses";
 import { Button } from "../../components/ui/Button";
 import { ProfileSection } from "../../components/character/ProfileSection";
 import { LoadingState } from "../../components/ui/LoadingState";
+import { PageHeader } from "../../components/ui/PageHeader";
+import { EmptyState } from "../../components/ui/EmptyState";
+import { Table, Thead, Tbody, Tr, Th, Td } from "../../components/ui/Table";
 
 function formatDueDate(iso: string): string {
   return new Date(`${iso}T00:00:00`).toLocaleDateString(undefined, { month: "long", day: "numeric", year: "numeric" });
@@ -37,46 +40,54 @@ export function AssignmentArchivePage() {
 
   return (
     <div className="px-4 md:px-8 py-6 md:py-8 max-w-3xl mx-auto flex flex-col gap-5">
-      <div>
-        <h1 className="text-2xl md:text-3xl font-display text-gold-bright mb-2">🗄️ Assignment Archive</h1>
-        <p className="text-parchment-dim text-sm">Past assignments, kept for reference.</p>
-      </div>
+      <PageHeader title="Assignment Archive" description="Past assignments, kept for reference." icon={Archive} />
 
-      <div className="flex flex-col gap-2">
-        {archived.length === 0 ? (
-          <p className="text-parchment-dim text-sm">Nothing archived yet.</p>
-        ) : (
-          archived.map((assignment) => {
-            const teachingCourse = teachingCoursesById.get(assignment.teachingCourseId);
-            const course = teachingCourse ? getCourse(teachingCourse.courseId) : undefined;
-            return (
-              <div key={assignment.id} className="border border-parchment-dim/20 rounded-sm px-5 py-4">
-                <div className="flex items-start justify-between gap-3 mb-1">
-                  <Link
-                    to={`/professor/assignments/${assignment.id}`}
-                    className="font-display text-lg text-parchment hover:text-gold-bright transition-colors"
-                  >
-                    {assignment.title}
-                  </Link>
-                  <Button variant="secondary" onClick={() => setStatus(assignment.id, "Draft")}>
-                    Restore to Draft
-                  </Button>
-                </div>
-                <p className="text-parchment-dim text-xs">
-                  {course?.name ?? "Unknown Course"} &middot; {teachingCourse?.section ?? "Unassigned section"}{" "}
-                  &middot; Was due {formatDueDate(assignment.dueDate)}
-                </p>
-              </div>
-            );
-          })
-        )}
-      </div>
+      {archived.length === 0 ? (
+        <EmptyState message="Nothing archived yet." icon={Archive} />
+      ) : (
+        <Table>
+          <Thead>
+            <Tr>
+              <Th>Assignment</Th>
+              <Th>Course</Th>
+              <Th>Was Due</Th>
+              <Th></Th>
+            </Tr>
+          </Thead>
+          <Tbody>
+            {archived.map((assignment) => {
+              const teachingCourse = teachingCoursesById.get(assignment.teachingCourseId);
+              const course = teachingCourse ? getCourse(teachingCourse.courseId) : undefined;
+              return (
+                <Tr key={assignment.id}>
+                  <Td>
+                    <Link
+                      to={`/professor/assignments/${assignment.id}`}
+                      className="text-parchment hover:text-gold-bright transition-colors"
+                    >
+                      {assignment.title}
+                    </Link>
+                  </Td>
+                  <Td className="text-parchment-dim text-xs">
+                    {course?.name ?? "Unknown Course"}
+                    <br />
+                    {teachingCourse?.section ?? "Unassigned section"}
+                  </Td>
+                  <Td className="text-parchment-dim text-xs">{formatDueDate(assignment.dueDate)}</Td>
+                  <Td className="text-right">
+                    <Button size="sm" variant="secondary" onClick={() => setStatus(assignment.id, "Draft")}>
+                      Restore to Draft
+                    </Button>
+                  </Td>
+                </Tr>
+              );
+            })}
+          </Tbody>
+        </Table>
+      )}
 
       <ProfileSection title="Duplicate Assignment" icon={Copy}>
-        <p className="text-parchment-dim text-sm">
-          Copying an archived assignment into a new draft for next term will be available here in a future
-          milestone.
-        </p>
+        <p className="text-parchment-dim text-sm">Reuse an archived assignment as the starting point for a new one.</p>
       </ProfileSection>
     </div>
   );

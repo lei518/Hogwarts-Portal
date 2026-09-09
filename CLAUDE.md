@@ -27,25 +27,25 @@ The finished project should feel less like navigating a web application and more
 
 ## Two zones
 
-**Onboarding (story elements live here only):** the fixed pipeline below, gated by `src/journey/` (`getJourneyStage.ts` + `JourneyGate.tsx`). Every step is once-only per character, enforced by a boolean on `Character` (e.g. `acceptanceLetterViewed`, `sortingCompleted`, `commonRoomIntroViewed`) checked on mount, redirecting forward instead of replaying.
+**Onboarding (Hogwarts traditions preserved only where they make sense academically):** this is a university portal, not a Hogwarts Legacy-style RPG (Phase 6L) — every account is created by an Admin (Display Name, Email, Temporary Password, Role, and for students an Academic Year 1-7 plus, for an already-enrolled Year 2-7 student, a House). There is no self-built character, no story pipeline, and no "Begin Journey": a signed-in student's `Character` is synthesized automatically from their Admin-assigned profile the moment they sign in (`GameContext.tsx`'s auto-synthesis effect), and what happens next is keyed entirely on `year`, gated by `src/journey/` (`getJourneyStage.ts` + `JourneyGate.tsx`):
 
 ```
-Landing Page
-  -> Begin Journey
-Authentication Screen (Sign In / Student Registration)
-  -> Student Enrollment            (Character Creation - firstName/lastName/gender/appearance/year only)
-  -> Hogwarts Acceptance Letter
-  -> Ollivanders Wand Ceremony     (must stay before Sorting - HP lore)
-  -> Hogwarts Express Journey
-  -> Sorting Ceremony
-  -> House Common Room Introduction (welcome house-points bonus lands here)
-  -> First Day Tutorial
-  -> Hogwarts Student Portal
+Admin creates account (Display Name, Email, Temp Password, Role [, Year, House])
+  -> Sign In
+       |
+       +-- Professor / Admin -> straight to their own Portal
+       |
+       +-- Student
+             |
+             +-- Year 1  -> Wand Ceremony -> Sorting Hat -> Student Portal
+             +-- Year 2-4 -> Student Portal directly
+             +-- Year 5  -> Patronus Charm (forced once) -> Student Portal
+             +-- Year 6-7 -> Student Portal directly
 ```
+
+Year 1's House comes from the Sorting Hat (unchanged ceremony, `sortingCompleted` boolean on `Character`); an already-enrolled Year 2-7 student's House is Admin-assigned at account creation instead — the Admin never assigns Year 1's house, and the Sorting Hat never runs for Year 2-7. The Patronus Charm (`src/pages/Patronus/Patronus.tsx`) keeps its own unchanged page-level gate (locked below Year 5, shows the saved result once cast) and stays reachable any time for Year 5+ afterward — `JourneyGate` only *forces* a Year-5 student there once, on top of that existing gate.
 
 **The Hogwarts Student Portal** (everything after onboarding, inside `GameLayout`): the ongoing services a student manages day to day. Organized into the information architecture below — not a flat game menu.
-
-**Portal features that unlock partway through a student's education** (like the Patronus Charm, Year 5+ / OWL-level) get a gate on the page itself (`character.year >= N`), never a place in the onboarding pipeline. Visiting before the unlock year shows a locked message instead of the feature. This is the standing model for "advanced magic taught later in a student's education."
 
 ---
 
@@ -133,8 +133,8 @@ One grouped-section data model — conceptually `sections: { id, label, icon, it
 - Run every new page through the university-portal litmus test and the Design Principles above before building it.
 - Before adding a feature, ask which zone it belongs to first (Onboarding vs. Portal), then which of the six Portal sections it canonically belongs to. A one-time narrative beat is onboarding; anything a student would come back to repeatedly is Portal.
 - Apply One Source of Truth: decide the single canonical page for new data before writing it anywhere else as a preview/summary. If two sections both seem to want to own something, use the Home-vs-Planner pattern above (one owns/manages, the other previews/links).
-- Route *paths* (`/create-character`, `/tutorial`, `/dashboard`, etc.) are stable identifiers, not display text — rename headings/nav labels/copy to match this vision, not URLs, unless explicitly asked to.
-- Adding an onboarding step: give it a `<name>Viewed`/`<name>Completed` boolean on `Character` (`types/character.ts` + default `false` in `utils/character.ts`), add its route to `ONBOARDING_PATHS` in `journey/getJourneyStage.ts`, and give the page the standard guard (`useEffect` redirecting forward if already done, matching `AcceptanceLetter.tsx`/`HogwartsExpress.tsx`).
+- Route *paths* (`/wand`, `/sorting`, `/dashboard`, etc.) are stable identifiers, not display text — rename headings/nav labels/copy to match this vision, not URLs, unless explicitly asked to.
+- Onboarding is closed, not extensible by convention: it's exactly the year-based rules in `journey/getJourneyStage.ts` (Year 1 -> Wand -> Sorting; Year 5 -> Patronus; everything else -> straight to Portal). A new "unlocks partway through a student's education" feature is a page-level gate (`character.year >= N`, matching Patronus's own gate), not a new onboarding step — see the Design Principles' litmus test before adding either.
 - Adding a Portal page: add one entry to the correct section in the shared navigation section model (not a standalone list) so Sidebar/Mobile/Home all stay in sync automatically.
 
 This architecture is the project's permanent foundation as of this document. Future architectural decisions and feature implementations should align with it unless explicitly changed.

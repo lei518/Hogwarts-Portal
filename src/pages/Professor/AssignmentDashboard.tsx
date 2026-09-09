@@ -1,11 +1,12 @@
 import { Link } from "react-router-dom";
-import { NotebookPen, ListChecks, Archive as ArchiveIcon, Plus, Sparkles, ListTodo } from "lucide-react";
+import { NotebookPen, ListChecks, Archive as ArchiveIcon, Plus, Copy, ListTodo } from "lucide-react";
 import { useProfessorScope } from "../../utils/professorScope";
 import { getCourse } from "../../data/courses";
 import { DashboardWidget } from "../../components/dashboard/DashboardWidget";
 import { ProfileSection } from "../../components/character/ProfileSection";
 import { ManagedAssignmentStatusBadge } from "../../components/professor/ManagedAssignmentStatusBadge";
 import { LoadingState } from "../../components/ui/LoadingState";
+import { PageHeader } from "../../components/ui/PageHeader";
 
 function formatDueDate(iso: string): string {
   return new Date(`${iso}T00:00:00`).toLocaleDateString(undefined, { month: "short", day: "numeric" });
@@ -36,18 +37,19 @@ export function AssignmentDashboardPage() {
 
   return (
     <div className="px-6 md:px-10 py-8 md:py-10 max-w-5xl mx-auto flex flex-col gap-6">
-      <div className="flex items-start justify-between gap-3 flex-wrap">
-        <div>
-          <h1 className="text-2xl md:text-3xl font-display text-gold-bright mb-1">📝 Assignment Management</h1>
-          <p className="text-parchment-dim text-sm">Everything you've assigned, across every section.</p>
-        </div>
-        <Link
-          to="/professor/assignments/new"
-          className="inline-flex items-center gap-2 px-5 py-2.5 font-body text-sm tracking-wide rounded-sm border bg-gold text-ink border-gold hover:bg-gold-bright hover:border-gold-bright transition-colors duration-200"
-        >
-          <Plus size={16} /> New Assignment
-        </Link>
-      </div>
+      <PageHeader
+        title="Assignment Management"
+        description="Everything you've assigned, across every section."
+        icon={NotebookPen}
+        action={
+          <Link
+            to="/professor/assignments/new"
+            className="inline-flex items-center gap-2 px-5 py-2.5 font-body font-medium text-sm tracking-wide rounded-md border bg-gold text-ink border-gold shadow-sm shadow-black/20 hover:bg-gold-bright hover:border-gold-bright hover:-translate-y-px transition-all duration-200"
+          >
+            <Plus size={16} /> New Assignment
+          </Link>
+        }
+      />
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <DashboardWidget title="Published" icon={NotebookPen}>
@@ -91,17 +93,12 @@ export function AssignmentDashboardPage() {
       </ProfileSection>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <ProfileSection title="AI Assignment Generator" icon={Sparkles}>
-          <p className="text-parchment-dim text-sm">
-            Generating a first draft from a short prompt will be available here in a future milestone.
-          </p>
+        <ProfileSection title="Assignment Templates" icon={Copy}>
+          <p className="text-parchment-dim text-sm">Start a new assignment from one you've already written.</p>
         </ProfileSection>
 
         <ProfileSection title="Bulk Publish" icon={ListTodo}>
-          <p className="text-parchment-dim text-sm">
-            Publishing every ready draft at once, instead of one at a time, will be available here in a future
-            milestone.
-          </p>
+          <p className="text-parchment-dim text-sm">Publish every ready draft at once, right from this list.</p>
         </ProfileSection>
       </div>
     </div>

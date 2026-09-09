@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { Lock, Sparkles } from "lucide-react";
 import { Button } from "../../components/ui/Button";
+import { Badge } from "../../components/ui/Badge";
 import { QuizStep } from "../../components/ui/QuizStep";
 import { patronusQuestions, calculatePatronus } from "../../data/patronusQuestions";
 import { useGame } from "../../context/GameContext";
@@ -39,7 +41,7 @@ export function PatronusPage() {
   if (locked) {
     return (
       <div className="px-4 md:px-8 py-16 max-w-2xl mx-auto text-center">
-        <span className="text-5xl mb-4 block">🔒</span>
+        <Lock size={40} className="mx-auto mb-4 text-parchment-dim" aria-hidden="true" />
         <h1 className="text-2xl md:text-3xl font-display text-gold-bright mb-3">
           The Patronus Charm
         </h1>
@@ -63,11 +65,7 @@ export function PatronusPage() {
           {character.patronus.name}
         </h1>
         <p className="text-parchment-dim leading-relaxed mb-4">{character.patronus.description}</p>
-        {character.patronus.rarity && (
-          <span className="px-3 py-1 text-xs uppercase tracking-wide border border-parchment-dim/30 rounded-full text-parchment-dim">
-            {character.patronus.rarity}
-          </span>
-        )}
+        {character.patronus.rarity && <Badge tone="neutral">{character.patronus.rarity}</Badge>}
       </div>
     );
   }
@@ -110,7 +108,7 @@ export function PatronusPage() {
               Expecto Patronum!
             </p>
           )}
-          <p className="text-2xl tracking-widest text-parchment-dim animate-pulse">✨ ✨ ✨</p>
+          <Sparkles size={28} className="text-parchment-dim animate-pulse" aria-hidden="true" />
         </div>
       )}
 
@@ -125,9 +123,9 @@ export function PatronusPage() {
           </h2>
           <p className="text-parchment-dim leading-relaxed mb-6">{result.description}</p>
           {result.rarity && (
-            <span className="mb-6 px-3 py-1 text-xs uppercase tracking-wide border border-parchment-dim/30 rounded-full text-parchment-dim">
-              {result.rarity}
-            </span>
+            <div className="mb-6">
+              <Badge tone="neutral">{result.rarity}</Badge>
+            </div>
           )}
           <Button onClick={handleFinish}>Save My Patronus</Button>
         </div>

@@ -1,73 +1,94 @@
 import { Link } from "react-router-dom";
+import { FileText } from "lucide-react";
 import { useGame } from "../../context/GameContext";
+import { useAcademicData } from "../../context/AcademicDataContext";
 import { getTranscript } from "../../utils/grades";
-import { getCourse } from "../../data/courses";
 import { houseInfo } from "../../data/sortingQuestions";
 import { getFullName } from "../../utils/character";
 import { ProfileField } from "../../components/character/ProfileSection";
+import { Card } from "../../components/ui/Card";
+import { PageHeader } from "../../components/ui/PageHeader";
+import { LoadingState } from "../../components/ui/LoadingState";
 
+// Phase 2 - Real Academic Workflow. The official record, generated from
+// completed courses + computed grades (see utils/grades.ts's getTranscript),
+// grouped by academic year - never re-authored seed data. GPA/Credits stay
+// honest placeholders (no credit-hour system exists).
 export function TranscriptPage() {
   const { state } = useGame();
   const { character } = state;
+  const { coursesById, courses, professorsById, loading } = useAcademicData();
 
   if (!character || !character.house) return null;
 
-  const transcript = getTranscript(character);
+  if (loading) {
+    return (
+      <div className="px-4 md:px-8 py-6 md:py-8 max-w-3xl mx-auto">
+        <LoadingState label="Loading your transcript…" />
+      </div>
+    );
+  }
+
+  const transcript = getTranscript(character, courses);
   const house = houseInfo[character.house];
 
   return (
     <div className="px-4 md:px-8 py-6 md:py-8 max-w-3xl mx-auto flex flex-col gap-5">
-      <div>
-        <h1 className="text-2xl md:text-3xl font-display text-gold-bright mb-2">📄 Official Transcript</h1>
-        <p className="text-parchment-dim text-sm">Hogwarts School of Witchcraft and Wizardry</p>
-      </div>
+      <PageHeader
+        title="Official Transcript"
+        description="Hogwarts School of Witchcraft and Wizardry"
+        icon={FileText}
+      />
 
-      <section className="border border-parchment-dim/20 rounded-sm px-6 py-6">
+      <Card as="section" className="px-6 py-6">
         <p className="text-parchment-dim text-xs uppercase tracking-[0.2em] mb-4">Student Information</p>
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
           <ProfileField label="Student" value={getFullName(character)} />
-          <ProfileField label="Academic Year" value={transcript.academicYear} />
           <ProfileField
             label="House"
-            value={
-              <span style={{ color: house.colors.secondary }}>
-                {house.emoji} {character.house}
-              </span>
-            }
+            value={<span style={{ color: house.colors.secondary }}>{character.house}</span>}
           />
-          <ProfileField label="Semester" value={transcript.semester} />
+          <ProfileField label="Cumulative GPA" value={transcript.gpa} />
         </div>
-      </section>
+      </Card>
 
-      <section className="border border-parchment-dim/20 rounded-sm overflow-hidden">
-        <div className="grid grid-cols-[1fr_auto_auto] gap-3 px-5 py-3 border-b border-parchment-dim/15 text-parchment-dim text-[11px] uppercase tracking-wide">
-          <span>Course</span>
-          <span className="text-right">Final Grade</span>
-          <span className="text-right">Credits</span>
-        </div>
-        {transcript.entries.map((entry) => {
-          const course = getCourse(entry.courseId);
-          return (
-            <div
-              key={entry.courseId}
-              className="grid grid-cols-[1fr_auto_auto] gap-3 px-5 py-3 border-b border-parchment-dim/10 last:border-b-0 items-center"
-            >
-              <Link
-                to={course ? `/courses/${course.id}` : "/courses"}
-                className="text-sm text-parchment hover:text-gold-bright transition-colors truncate"
-              >
-                {course?.name ?? entry.courseId}
-              </Link>
-              <span className="text-sm text-gold-bright text-right">{entry.finalGrade}</span>
-              <span className="text-sm text-parchment-dim text-right">{entry.credits}</span>
+      {transcript.yearGroups.length === 0 ? (
+        <p className="text-parchment-dim text-sm">No academic history on file yet.</p>
+      ) : (
+        transcript.yearGroups.map((group) => (
+          <Card key={group.year} as="section" className="overflow-hidden">
+            <div className="px-5 py-3 border-b border-parchment-dim/15 bg-void/30">
+              <p className="text-parchment font-display">Year {group.year}</p>
             </div>
-          );
-        })}
-        <div className="flex items-center justify-between px-5 py-4 bg-void/40">
-          <p className="text-parchment-dim text-xs uppercase tracking-wide">Cumulative GPA</p>
-          <p className="text-parchment text-lg font-display">{transcript.gpa}</p>
-        </div>
-      </section>
+            <div className="grid grid-cols-[1fr_auto_auto] gap-3 px-5 py-3 border-b border-parchment-dim/15 text-parchment-dim text-[11px] uppercase tracking-wide">
+              <span>Course</span>
+              <span className="text-right">Professor</span>
+              <span className="text-right">Final Grade</span>
+            </div>
+            {group.entries.map((entry) => {
+              const course = coursesById.get(entry.courseId);
+              const professor = course?.professorId ? professorsById.get(course.professorId) : undefined;
+              return (
+                <div
+                  key={entry.courseId}
+                  className="grid grid-cols-[1fr_auto_auto] gap-3 px-5 py-3 border-b border-parchment-dim/10 last:border-b-0 items-center"
+                >
+                  <Link
+                    to={course ? `/courses/${course.id}` : "/courses"}
+                    className="text-sm text-parchment hover:text-gold-bright transition-colors truncate"
+                  >
+                    {course?.name ?? entry.courseId}
+                  </Link>
+                  <span className="text-sm text-parchment-dim text-right truncate">
+                    {professor?.name ?? "To Be Assigned"}
+                  </span>
+                  <span className="text-sm text-gold-bright text-right">{entry.finalGrade}</span>
+                </div>
+              );
+            })}
+          </Card>
+        ))
+      )}
 
       <p className="text-parchment-dim text-xs">
         This is an unofficial record generated by the Hogwarts Student Portal.

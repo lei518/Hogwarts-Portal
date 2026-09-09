@@ -1,25 +1,61 @@
-import { useState, type FormEvent } from "react";
-import { KeyRound, LayoutTemplate, UserPlus } from "lucide-react";
+import { useState, Fragment, type FormEvent } from "react";
+import { KeyRound, LayoutTemplate, UserPlus, Users } from "lucide-react";
 import { useAdminScope } from "../../utils/adminScope";
+import { ROLES } from "../../services/supabase";
 import { Button } from "../../components/ui/Button";
+import { Badge, type BadgeTone } from "../../components/ui/Badge";
+import { FormField } from "../../components/ui/FormField";
+import { Input, Select } from "../../components/ui/Input";
+import { PageHeader } from "../../components/ui/PageHeader";
 import { ProfileSection } from "../../components/character/ProfileSection";
 import { LoadingState } from "../../components/ui/LoadingState";
+import { Table, Thead, Tbody, Tr, Th, Td, TableEmptyRow } from "../../components/ui/Table";
 import type { AccountRole, AccountStatus } from "../../types/adminPortal";
+import type { House } from "../../types/game";
 
-const STATUS_COLORS: Record<AccountStatus, string> = {
-  Active: "#6b9e6b",
-  Suspended: "#c77b7b",
-  Locked: "#8a8478",
-  Pending: "#c9a646",
+const STATUS_TONE: Record<AccountStatus, BadgeTone> = {
+  Active: "emerald",
+  Suspended: "maroon",
+  Locked: "neutral",
+  Pending: "gold",
 };
 
-const ACCOUNT_ROLES: AccountRole[] = ["student", "professor", "admin"];
+// Phase 6 role-system audit: derived from the central ROLES object (see
+// services/supabase.ts) instead of its own hand-typed literal array, which
+// isn't exhaustiveness-checked against AccountRole/UserRole and could
+// silently miss a role - unlike ROLE_LABELS below, a plain array like this
+// used to have no compiler safety net at all.
+const ACCOUNT_ROLES: AccountRole[] = Object.values(ROLES);
 
-const inputClass =
-  "w-full bg-void/50 border border-parchment-dim/30 rounded-sm px-3 py-2 text-sm text-parchment placeholder:text-parchment-dim/50 focus:border-gold outline-none";
-const labelClass = "text-parchment-dim text-[11px] uppercase tracking-wide mb-1 block";
+// Phase 5 - Campus Services: naive `charAt(0).toUpperCase()` capitalization
+// renders "deputy_headmaster" as "Deputy_headmaster" - a real label map
+// instead, for every role.
+const ROLE_LABELS: Record<AccountRole, string> = {
+  student: "Student",
+  professor: "Professor",
+  admin: "Admin",
+  librarian: "Librarian",
+  healer: "Healer",
+  caretaker: "Caretaker",
+  deputy_headmaster: "Deputy Headmaster",
+};
 
-const emptyForm = { displayName: "", email: "", password: "", role: "student" as AccountRole };
+// Year-Based Onboarding (Phase 6L). Year 1 is deliberately excluded from
+// HOUSES's applicability, not from the list itself - a Year 1 student's
+// house comes from the Sorting Hat ceremony, never the Admin (the House
+// field below only ever shows for Year 2-7, see admin-create-account's own
+// matching validation).
+const YEARS = [1, 2, 3, 4, 5, 6, 7] as const;
+const HOUSES: House[] = ["Gryffindor", "Hufflepuff", "Ravenclaw", "Slytherin"];
+
+const emptyForm = {
+  displayName: "",
+  email: "",
+  password: "",
+  role: "student" as AccountRole,
+  year: 1 as (typeof YEARS)[number],
+  house: HOUSES[0],
+};
 
 // Canonical owner of AdminUserAccount - the one genuinely new data model
 // from Phase 4A, now editable through AdminContext (Phase 4B). Changes are
@@ -37,6 +73,13 @@ const emptyForm = { displayName: "", email: "", password: "", role: "student" as
 // last hop can't happen from this page or any client code directly). This
 // page only ever calls createAccount() - it contains no authentication
 // logic itself, and never bypasses AdminContext.
+//
+// Year-Based Onboarding (Phase 6L): Year (Student role only) and House
+// (Student + Year 2-7 only) were added to this same form - a Year 1
+// student's house comes from the Sorting Hat instead, never the Admin.
+// The submitted payload recomputes year/house from the *current*
+// role/year at submit time (not just which inputs are visible), so a
+// stale value left over from an earlier role/year choice is never sent.
 //
 // Account Status (Phase 6E): the Enable/Disable/Lock/Unlock buttons below
 // are unchanged - same labels, same positions, same per-status visibility.
@@ -170,11 +213,14 @@ export function UserAdministrationPage() {
       return;
     }
 
+    const isStudent = form.role === "student";
     const result = await createAccount({
       displayName: form.displayName.trim(),
       email: form.email.trim(),
       password: form.password,
       role: form.role,
+      year: isStudent ? form.year : undefined,
+      house: isStudent && form.year >= 2 ? form.house : undefined,
     });
 
     if (!result.success) {
@@ -186,241 +232,271 @@ export function UserAdministrationPage() {
 
   if (loading) {
     return (
-      <div className="px-4 md:px-8 py-6 md:py-8 max-w-4xl mx-auto">
+      <div className="px-4 md:px-8 py-6 md:py-8 max-w-5xl mx-auto">
         <LoadingState label="Loading accounts…" />
       </div>
     );
   }
 
   return (
-    <div className="px-4 md:px-8 py-6 md:py-8 max-w-4xl mx-auto flex flex-col gap-5">
-      <div>
-        <h1 className="text-2xl md:text-3xl font-display text-gold-bright mb-2">🔐 User Administration</h1>
-        <p className="text-parchment-dim text-sm">Accounts, roles, and status.</p>
-      </div>
+    <div className="px-4 md:px-8 py-6 md:py-8 max-w-5xl mx-auto flex flex-col gap-6">
+      <PageHeader title="User Administration" description="Accounts, roles, and status." icon={Users} />
 
-      {accountsError && <p className="text-[#c77b7b] text-xs">{accountsError}</p>}
-      {statusError && <p className="text-[#c77b7b] text-xs">{statusError}</p>}
+      {accountsError && <p className="text-ember text-xs">{accountsError}</p>}
+      {statusError && <p className="text-ember text-xs">{statusError}</p>}
 
-      <div className="flex flex-col gap-2">
-        {accounts.map((account) => {
-          const color = STATUS_COLORS[account.status];
-          return (
-            <div key={account.id} className="border border-parchment-dim/20 rounded-sm px-5 py-4">
-              <div className="flex items-center justify-between gap-3 flex-wrap">
-              <div className="min-w-0">
-                <p className="font-display text-lg text-parchment truncate">{account.displayName}</p>
-                <p className="text-parchment-dim text-xs uppercase tracking-wide">{account.role}</p>
-              </div>
-
-              <div className="flex items-center gap-2 shrink-0">
-                <span
-                  className="text-[10px] uppercase tracking-wide px-2 py-0.5 rounded-full border"
-                  style={{ color, borderColor: `${color}66`, background: `${color}15` }}
-                >
-                  {account.status}
-                </span>
-
-                {account.status === "Active" && (
-                  <>
+      <Table>
+        <Thead>
+          <Tr>
+            <Th>Name</Th>
+            <Th>Role</Th>
+            <Th>Status</Th>
+            <Th className="text-right">Actions</Th>
+          </Tr>
+        </Thead>
+        <Tbody>
+          {accounts.map((account) => (
+            <Fragment key={account.id}>
+              <Tr>
+                <Td className="font-display text-parchment">{account.displayName}</Td>
+                <Td className="text-parchment-dim">{ROLE_LABELS[account.role]}</Td>
+                <Td>
+                  <Badge tone={STATUS_TONE[account.status]}>{account.status}</Badge>
+                </Td>
+                <Td>
+                  <div className="flex flex-wrap justify-end gap-2">
+                    {account.status === "Active" && (
+                      <>
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          disabled={anyActionRunning}
+                          onClick={() => handleStatusChange(account.id, "Suspended")}
+                        >
+                          Disable
+                        </Button>
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          disabled={anyActionRunning}
+                          onClick={() => handleStatusChange(account.id, "Locked")}
+                        >
+                          Lock
+                        </Button>
+                      </>
+                    )}
+                    {account.status === "Suspended" && (
+                      <>
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          disabled={anyActionRunning}
+                          onClick={() => handleStatusChange(account.id, "Active")}
+                        >
+                          Enable
+                        </Button>
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          disabled={anyActionRunning}
+                          onClick={() => handleStatusChange(account.id, "Locked")}
+                        >
+                          Lock
+                        </Button>
+                      </>
+                    )}
+                    {account.status === "Locked" && (
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        disabled={anyActionRunning}
+                        onClick={() => handleStatusChange(account.id, "Active")}
+                      >
+                        Unlock
+                      </Button>
+                    )}
+                    {account.status === "Pending" && (
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        disabled={anyActionRunning}
+                        onClick={() => handleStatusChange(account.id, "Active")}
+                      >
+                        Enable
+                      </Button>
+                    )}
                     <Button
                       variant="secondary"
-                      className="px-3 py-1 text-xs"
+                      size="sm"
                       disabled={anyActionRunning}
-                      onClick={() => handleStatusChange(account.id, "Suspended")}
+                      onClick={() =>
+                        resetPasswordAccountId === account.id ? cancelPasswordReset() : startPasswordReset(account.id)
+                      }
                     >
-                      Disable
+                      Reset Password
                     </Button>
                     <Button
                       variant="secondary"
-                      className="px-3 py-1 text-xs"
+                      size="sm"
                       disabled={anyActionRunning}
-                      onClick={() => handleStatusChange(account.id, "Locked")}
+                      onClick={() =>
+                        deleteConfirmAccountId === account.id ? cancelDeleteConfirm() : startDeleteConfirm(account.id)
+                      }
                     >
-                      Lock
+                      Delete
                     </Button>
-                  </>
-                )}
-                {account.status === "Suspended" && (
-                  <>
-                    <Button
-                      variant="secondary"
-                      className="px-3 py-1 text-xs"
-                      disabled={anyActionRunning}
-                      onClick={() => handleStatusChange(account.id, "Active")}
-                    >
-                      Enable
-                    </Button>
-                    <Button
-                      variant="secondary"
-                      className="px-3 py-1 text-xs"
-                      disabled={anyActionRunning}
-                      onClick={() => handleStatusChange(account.id, "Locked")}
-                    >
-                      Lock
-                    </Button>
-                  </>
-                )}
-                {account.status === "Locked" && (
-                  <Button
-                    variant="secondary"
-                    className="px-3 py-1 text-xs"
-                    disabled={anyActionRunning}
-                    onClick={() => handleStatusChange(account.id, "Active")}
-                  >
-                    Unlock
-                  </Button>
-                )}
-                {account.status === "Pending" && (
-                  <Button
-                    variant="secondary"
-                    className="px-3 py-1 text-xs"
-                    disabled={anyActionRunning}
-                    onClick={() => handleStatusChange(account.id, "Active")}
-                  >
-                    Enable
-                  </Button>
-                )}
-                <Button
-                  variant="secondary"
-                  className="px-3 py-1 text-xs"
-                  disabled={anyActionRunning}
-                  onClick={() =>
-                    resetPasswordAccountId === account.id ? cancelPasswordReset() : startPasswordReset(account.id)
-                  }
-                >
-                  Reset Password
-                </Button>
-                <Button
-                  variant="secondary"
-                  className="px-3 py-1 text-xs"
-                  disabled={anyActionRunning}
-                  onClick={() =>
-                    deleteConfirmAccountId === account.id ? cancelDeleteConfirm() : startDeleteConfirm(account.id)
-                  }
-                >
-                  Delete
-                </Button>
-              </div>
-            </div>
+                  </div>
+                </Td>
+              </Tr>
 
-            {resetPasswordAccountId === account.id && (
-              <form
-                onSubmit={(e) => handlePasswordResetSubmit(e, account.id)}
-                className="flex flex-wrap items-end gap-3 mt-3 pt-3 border-t border-parchment-dim/10"
-              >
-                <div className="flex-1 min-w-45">
-                  <label className={labelClass} htmlFor={`reset-password-${account.id}`}>
-                    Temporary Password
-                  </label>
-                  <input
-                    id={`reset-password-${account.id}`}
-                    type="password"
-                    className={inputClass}
-                    value={resetPasswordValue}
-                    onChange={(e) => setResetPasswordValue(e.target.value)}
-                    required
-                  />
-                </div>
-                <Button type="submit" className="px-3 py-1 text-xs" disabled={anyActionRunning}>
-                  {resettingPassword ? "Resetting…" : "Submit"}
-                </Button>
-                <Button
-                  type="button"
-                  variant="secondary"
-                  className="px-3 py-1 text-xs"
-                  disabled={anyActionRunning}
-                  onClick={cancelPasswordReset}
-                >
-                  Cancel
-                </Button>
-                {resetPasswordError && <p className="text-[#c77b7b] text-xs w-full">{resetPasswordError}</p>}
-              </form>
-            )}
+              {resetPasswordAccountId === account.id && (
+                <Tr>
+                  <Td colSpan={4} className="bg-void/20">
+                    <form
+                      onSubmit={(e) => handlePasswordResetSubmit(e, account.id)}
+                      className="flex flex-wrap items-end gap-3"
+                    >
+                      <FormField
+                        label="Temporary Password"
+                        htmlFor={`reset-password-${account.id}`}
+                        className="flex-1 min-w-45"
+                      >
+                        <Input
+                          id={`reset-password-${account.id}`}
+                          type="password"
+                          value={resetPasswordValue}
+                          onChange={(e) => setResetPasswordValue(e.target.value)}
+                          required
+                        />
+                      </FormField>
+                      <Button type="submit" size="sm" disabled={anyActionRunning}>
+                        {resettingPassword ? "Resetting…" : "Submit"}
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        size="sm"
+                        disabled={anyActionRunning}
+                        onClick={cancelPasswordReset}
+                      >
+                        Cancel
+                      </Button>
+                      {resetPasswordError && <p className="text-ember text-xs w-full">{resetPasswordError}</p>}
+                    </form>
+                  </Td>
+                </Tr>
+              )}
 
-            {deleteConfirmAccountId === account.id && (
-              <div className="flex flex-wrap items-center gap-3 mt-3 pt-3 border-t border-parchment-dim/10">
-                <p className="text-parchment-dim text-xs flex-1 min-w-45">
-                  Delete {account.displayName}'s account? This cannot be undone.
-                </p>
-                <Button
-                  variant="secondary"
-                  className="px-3 py-1 text-xs"
-                  disabled={anyActionRunning}
-                  onClick={() => handleConfirmDelete(account.id)}
-                >
-                  {deletingAccount ? "Deleting…" : "Confirm Delete"}
-                </Button>
-                <Button
-                  type="button"
-                  variant="secondary"
-                  className="px-3 py-1 text-xs"
-                  disabled={anyActionRunning}
-                  onClick={cancelDeleteConfirm}
-                >
-                  Cancel
-                </Button>
-                {deleteError && <p className="text-[#c77b7b] text-xs w-full">{deleteError}</p>}
-              </div>
-            )}
-            </div>
-          );
-        })}
-      </div>
+              {deleteConfirmAccountId === account.id && (
+                <Tr>
+                  <Td colSpan={4} className="bg-void/20">
+                    <div className="flex flex-wrap items-center gap-3">
+                      <p className="text-parchment-dim text-xs flex-1 min-w-45">
+                        Delete {account.displayName}'s account? This cannot be undone.
+                      </p>
+                      <Button
+                        variant="danger"
+                        size="sm"
+                        disabled={anyActionRunning}
+                        onClick={() => handleConfirmDelete(account.id)}
+                      >
+                        {deletingAccount ? "Deleting…" : "Confirm Delete"}
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        size="sm"
+                        disabled={anyActionRunning}
+                        onClick={cancelDeleteConfirm}
+                      >
+                        Cancel
+                      </Button>
+                      {deleteError && <p className="text-ember text-xs w-full">{deleteError}</p>}
+                    </div>
+                  </Td>
+                </Tr>
+              )}
+            </Fragment>
+          ))}
+          {accounts.length === 0 && <TableEmptyRow colSpan={4}>No accounts on file yet.</TableEmptyRow>}
+        </Tbody>
+      </Table>
 
       <ProfileSection title="Create Account" icon={UserPlus}>
-        <form onSubmit={handleCreateAccount} className="flex flex-col gap-3">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div>
-              <label className={labelClass} htmlFor="new-account-display-name">Display Name</label>
-              <input
+        <form onSubmit={handleCreateAccount} className="flex flex-col gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <FormField label="Display Name" htmlFor="new-account-display-name">
+              <Input
                 id="new-account-display-name"
-                className={inputClass}
                 value={form.displayName}
                 onChange={(e) => setForm({ ...form, displayName: e.target.value })}
                 required
               />
-            </div>
-            <div>
-              <label className={labelClass} htmlFor="new-account-email">Email</label>
-              <input
+            </FormField>
+            <FormField label="Email" htmlFor="new-account-email">
+              <Input
                 id="new-account-email"
                 type="email"
-                className={inputClass}
                 value={form.email}
                 onChange={(e) => setForm({ ...form, email: e.target.value })}
                 required
               />
-            </div>
-            <div>
-              <label className={labelClass} htmlFor="new-account-password">Temporary Password</label>
-              <input
+            </FormField>
+            <FormField label="Temporary Password" htmlFor="new-account-password">
+              <Input
                 id="new-account-password"
                 type="password"
-                className={inputClass}
                 value={form.password}
                 onChange={(e) => setForm({ ...form, password: e.target.value })}
                 required
               />
-            </div>
-            <div>
-              <label className={labelClass} htmlFor="new-account-role">Role</label>
-              <select
+            </FormField>
+            <FormField label="Role" htmlFor="new-account-role">
+              <Select
                 id="new-account-role"
-                className={inputClass}
                 value={form.role}
                 onChange={(e) => setForm({ ...form, role: e.target.value as AccountRole })}
               >
                 {ACCOUNT_ROLES.map((role) => (
                   <option key={role} value={role}>
-                    {role.charAt(0).toUpperCase() + role.slice(1)}
+                    {ROLE_LABELS[role]}
                   </option>
                 ))}
-              </select>
-            </div>
+              </Select>
+            </FormField>
+            {form.role === "student" && (
+              <FormField label="Academic Year" htmlFor="new-account-year">
+                <Select
+                  id="new-account-year"
+                  value={form.year}
+                  onChange={(e) => setForm({ ...form, year: Number(e.target.value) as (typeof YEARS)[number] })}
+                >
+                  {YEARS.map((year) => (
+                    <option key={year} value={year}>
+                      Year {year}
+                    </option>
+                  ))}
+                </Select>
+              </FormField>
+            )}
+            {form.role === "student" && form.year >= 2 && (
+              <FormField label="House" htmlFor="new-account-house">
+                <Select
+                  id="new-account-house"
+                  value={form.house}
+                  onChange={(e) => setForm({ ...form, house: e.target.value as House })}
+                >
+                  {HOUSES.map((house) => (
+                    <option key={house} value={house}>
+                      {house}
+                    </option>
+                  ))}
+                </Select>
+              </FormField>
+            )}
           </div>
 
-          {formError && <p className="text-[#c77b7b] text-xs">{formError}</p>}
+          {formError && <p className="text-ember text-xs">{formError}</p>}
 
           <div>
             <Button type="submit" disabled={creatingAccount}>
@@ -432,14 +508,12 @@ export function UserAdministrationPage() {
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <ProfileSection title="Permission Editor" icon={KeyRound}>
-          <p className="text-parchment-dim text-sm">
-            Changing what an account is allowed to do will be available here in a future milestone.
-          </p>
+          <p className="text-parchment-dim text-sm">Fine-tune exactly what each role is allowed to do.</p>
         </ProfileSection>
 
         <ProfileSection title="Role Templates" icon={LayoutTemplate}>
           <p className="text-parchment-dim text-sm">
-            Reusable permission bundles for common roles will be available here in a future milestone.
+            Standard permission sets for Student, Professor, Admin, and staff roles.
           </p>
         </ProfileSection>
       </div>

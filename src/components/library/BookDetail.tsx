@@ -1,4 +1,4 @@
-import { Bookmark, X } from "lucide-react";
+import { Bookmark, X, BookOpen, Check } from "lucide-react";
 import type { Book } from "../../data/books";
 import { Button } from "../ui/Button";
 import { getLocation } from "../../data/locations";
@@ -31,7 +31,7 @@ export function BookDetail({
       aria-modal="true"
       aria-label={book.title}
     >
-      <div className="relative w-full max-w-md border border-gold/30 rounded-sm bg-ink p-8">
+      <div className="relative w-full max-w-md border border-gold/30 rounded-lg bg-surface shadow-xl shadow-black/40 p-8">
         <button
           onClick={onClose}
           aria-label="Close"
@@ -41,7 +41,10 @@ export function BookDetail({
         </button>
 
         <p className="text-xs uppercase tracking-wide text-parchment-dim mb-2">{book.category}</p>
-        <h2 className="text-2xl font-display text-gold-bright mb-3">📖 {book.title}</h2>
+        <h2 className="flex items-center gap-2 text-2xl font-display text-gold-bright mb-3">
+          <BookOpen size={20} className="text-gold/70 shrink-0" />
+          {book.title}
+        </h2>
         <p className="text-parchment-dim text-sm leading-relaxed mb-5">{book.description}</p>
 
         <div className="flex flex-col gap-2 text-sm mb-6">
@@ -56,7 +59,13 @@ export function BookDetail({
             disabled={studied}
             className="flex-1 disabled:opacity-40 disabled:cursor-not-allowed"
           >
-            {studied ? "Studied ✓" : "Study"}
+            {studied ? (
+              <span className="flex items-center justify-center gap-1.5">
+                <Check size={15} /> Studied
+              </span>
+            ) : (
+              "Study"
+            )}
           </Button>
           <Button variant="secondary" onClick={onToggleBookmark} className="px-4">
             <Bookmark size={16} className={bookmarked ? "fill-gold text-gold" : ""} />

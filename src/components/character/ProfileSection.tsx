@@ -1,4 +1,5 @@
 import type { ComponentType, ReactNode } from "react";
+import { Card } from "../ui/Card";
 
 interface ProfileSectionProps {
   title: string;
@@ -14,13 +15,13 @@ interface ProfileSectionProps {
  */
 export function ProfileSection({ title, icon: Icon, className = "", children }: ProfileSectionProps) {
   return (
-    <section className={`border border-parchment-dim/20 rounded-sm px-5 py-4 flex flex-col ${className}`}>
-      <p className="flex items-center gap-2 text-parchment-dim text-xs uppercase tracking-[0.2em] mb-3">
-        {Icon && <Icon size={14} />}
+    <Card as="section" className={`px-5 py-4 flex flex-col ${className}`}>
+      <p className="flex items-center gap-2 text-parchment-dim text-xs font-medium uppercase tracking-[0.15em] mb-3">
+        {Icon && <Icon size={14} className="text-gold/80" />}
         {title}
       </p>
       <div className="flex-1">{children}</div>
-    </section>
+    </Card>
   );
 }
 

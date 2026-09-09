@@ -1,12 +1,13 @@
-import type { AssignmentStatus } from "../../types/academics";
+import type { AssignmentDisplayStatus } from "../../types/academics";
 
-const STATUS_COLORS: Record<AssignmentStatus, string> = {
-  "Not Started": "#8a8478",
+const STATUS_COLORS: Record<AssignmentDisplayStatus, string> = {
+  "Not Submitted": "#8a8478",
   Submitted: "#c9a646",
+  Late: "#c77b7b",
   Graded: "#6b9e6b",
 };
 
-export function AssignmentStatusBadge({ status }: { status: AssignmentStatus }) {
+export function AssignmentStatusBadge({ status }: { status: AssignmentDisplayStatus }) {
   const color = STATUS_COLORS[status];
   return (
     <span

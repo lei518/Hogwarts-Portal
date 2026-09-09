@@ -7,7 +7,7 @@ export function meetsRequirement(requirement: ChoiceRequirement | undefined, sta
   switch (requirement.type) {
     case "spell": {
       const progress = state.character?.spellbook.find((s) => s.spellId === requirement.id);
-      return progress?.unlocked === true;
+      return progress?.studied === true;
     }
     case "relationship": {
       const value = state.character?.relationships[requirement.id ?? ""] ?? 0;

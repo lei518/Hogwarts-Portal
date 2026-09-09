@@ -1,12 +1,10 @@
 import type { AdminRepository } from "./interfaces/repositoryTypes";
 import type { AdminUserAccount, AccountStatus } from "../types/adminPortal";
 import {
-  adminProfiles,
   serviceRequestSeeds,
   calendarDraftSeeds,
   housePointAdjustmentSeeds,
   resourceRequestSeeds,
-  getAdminProfileByDisplayName,
 } from "../data/adminPortal";
 import {
   adminCreateAccount,
@@ -60,7 +58,6 @@ function fromProfileAccountStatus(status: ProfileAccountStatus): AccountStatus {
 // calendar drafts, house point adjustments, resource requests) is
 // unaffected and this milestone touches only the account source.
 export const adminRepository: AdminRepository = {
-  getProfile: async () => adminProfiles[0],
   getAccounts: async () => {
     const rows = await adminListAccounts();
     return rows.map(
@@ -77,7 +74,6 @@ export const adminRepository: AdminRepository = {
   getCalendarDrafts: async () => calendarDraftSeeds,
   getHousePointAdjustments: async () => housePointAdjustmentSeeds,
   getResourceRequests: async () => resourceRequestSeeds,
-  getProfileByDisplayName: async (displayName) => getAdminProfileByDisplayName(displayName),
   createAccount: async (input) => {
     const result = await adminCreateAccount(input);
     // Real accounts have no seeded Student/Professor directory entry to

@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { Wand2 } from "lucide-react";
 import { Button } from "../../components/ui/Button";
 import { useGame } from "../../context/GameContext";
 import { useAuth } from "../../context/AuthContext";
@@ -37,9 +38,7 @@ export function Landing() {
         </p>
 
         <h1 className="font-display text-gold-bright leading-none">
-          <span className="block text-2xl md:text-3xl mb-1" aria-hidden="true">
-            🪄
-          </span>
+          <Wand2 size={28} className="mx-auto mb-3 text-gold-bright" aria-hidden="true" />
           <span className="block text-6xl md:text-8xl font-semibold tracking-wide drop-shadow-[0_0_25px_rgba(201,166,70,0.25)]">
             Hogwarts
           </span>

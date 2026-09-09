@@ -1,4 +1,8 @@
-export type SpellCategory = "Charms" | "Defense" | "Utility" | "Other";
+// Spell Archive (Phase 4) - a reference collection, not a progression
+// system: no difficulty rating, mana cost, or unlock year gates a spell
+// from view. `requiredYear` stays only as informational curriculum
+// metadata ("taught starting Year X"), never a lock.
+export type SpellCategory = "Charms" | "Defense Against the Dark Arts" | "Utility Spells" | "Other";
 
 export interface Spell {
   id: string;
@@ -6,10 +10,11 @@ export interface Spell {
   incantation: string;
   category: SpellCategory;
   description: string;
-  difficulty: 1 | 2 | 3 | 4 | 5;
-  manaCost: number;
   requiredYear: number;
-  effectColor: string;
+  history: string;
+  counterSpell?: string;
+  commonUses: string;
+  relatedSpellIds?: string[];
 }
 
 export const spells: Spell[] = [
@@ -19,10 +24,12 @@ export const spells: Spell[] = [
     incantation: "Lumos",
     category: "Charms",
     description: "Lights the tip of the caster's wand, useful in dark corridors and deeper places still.",
-    difficulty: 1,
-    manaCost: 5,
     requiredYear: 1,
-    effectColor: "#e6c568",
+    history:
+      "First documented as a practical illumination charm and taught to every first-year cohort since; one of the earliest spells most students learn to cast reliably.",
+    counterSpell: "Nox",
+    commonUses: "Lighting dim corridors, dungeons, and cupboards without a lantern.",
+    relatedSpellIds: ["nox"],
   },
   {
     id: "nox",
@@ -30,10 +37,11 @@ export const spells: Spell[] = [
     incantation: "Nox",
     category: "Charms",
     description: "Extinguishes the light created by Lumos.",
-    difficulty: 1,
-    manaCost: 5,
     requiredYear: 1,
-    effectColor: "#5b5548",
+    history: "Developed alongside Lumos as its natural counterpart; the two are taught together from the start.",
+    counterSpell: "Lumos",
+    commonUses: "Extinguishing wandlight discreetly, often before entering an unlit room unnoticed.",
+    relatedSpellIds: ["lumos"],
   },
   {
     id: "accio",
@@ -41,10 +49,11 @@ export const spells: Spell[] = [
     incantation: "Accio",
     category: "Charms",
     description: "Summons an object toward the caster, sometimes at surprising speed.",
-    difficulty: 3,
-    manaCost: 15,
     requiredYear: 4,
-    effectColor: "#c9a646",
+    history:
+      "A Summoning Charm classified as sufficiently advanced that the Ministry restricts its instruction until a student's fourth year, owing to the risk of a fast-moving object in flight.",
+    commonUses: "Retrieving objects from across a room, out of reach, or from a locked container.",
+    relatedSpellIds: ["alohomora"],
   },
   {
     id: "reparo",
@@ -52,88 +61,99 @@ export const spells: Spell[] = [
     incantation: "Reparo",
     category: "Charms",
     description: "Mends broken objects, piecing shattered fragments back together.",
-    difficulty: 2,
-    manaCost: 10,
     requiredYear: 2,
-    effectColor: "#8fae8b",
+    history: "A Mending Charm in routine use across every household and classroom in the wizarding world.",
+    commonUses: "Repairing broken glass, torn parchment, and cracked crockery.",
   },
   {
     id: "wingardium-leviosa",
     name: "Wingardium Leviosa",
     incantation: "Wingardium Leviosa",
-    category: "Utility",
+    category: "Charms",
     description: "Levitates an object into the air. Wrist movement matters more than force.",
-    difficulty: 2,
-    manaCost: 10,
     requiredYear: 1,
-    effectColor: "#9fc4e0",
+    history:
+      "One of the first charms taught at Hogwarts, chosen precisely because getting the wrist movement wrong produces a harmless (if occasionally embarrassing) failure.",
+    commonUses: "Levitating small objects for transport, demonstration, or a levitation-based task.",
   },
   {
     id: "alohomora",
     name: "Alohomora",
     incantation: "Alohomora",
-    category: "Utility",
+    category: "Utility Spells",
     description: "Unlocks non-magically sealed doors and containers.",
-    difficulty: 2,
-    manaCost: 8,
     requiredYear: 2,
-    effectColor: "#c9a646",
+    history:
+      "The Unlocking Charm, widely taught but subject to School Policy restrictions outside supervised coursework - see Resources' School Policies.",
+    commonUses: "Opening locked doors, trunks, and cabinets that carry no magical ward of their own.",
+    relatedSpellIds: ["accio"],
   },
   {
     id: "protego",
     name: "Protego",
     incantation: "Protego",
-    category: "Defense",
+    category: "Defense Against the Dark Arts",
     description: "Conjures a shield that deflects incoming spells and minor physical force.",
-    difficulty: 4,
-    manaCost: 20,
     requiredYear: 4,
-    effectColor: "#6fa8dc",
+    history:
+      "The Shield Charm, a core piece of Defence Against the Dark Arts coursework from the year it's introduced onward.",
+    counterSpell: "None - Protego is itself a defensive counter to an incoming spell.",
+    commonUses: "Blocking an incoming jinx, hex, or curse in a supervised duelling exercise.",
+    relatedSpellIds: ["expelliarmus", "stupefy"],
   },
   {
     id: "expelliarmus",
     name: "Expelliarmus",
     incantation: "Expelliarmus",
-    category: "Defense",
+    category: "Defense Against the Dark Arts",
     description: "Disarms an opponent, knocking their wand from their grip.",
-    difficulty: 3,
-    manaCost: 15,
     requiredYear: 3,
-    effectColor: "#d3634a",
+    history:
+      "The Disarming Charm, the first offensive-defensive spell most students are formally taught, favoured for ending a duel without lasting harm.",
+    commonUses: "Ending a duel safely by separating an opponent from their wand.",
+    relatedSpellIds: ["protego", "stupefy"],
   },
   {
     id: "stupefy",
     name: "Stupefy",
     incantation: "Stupefy",
-    category: "Defense",
+    category: "Defense Against the Dark Arts",
     description: "A stunning spell that renders the target briefly unconscious.",
-    difficulty: 4,
-    manaCost: 22,
     requiredYear: 5,
-    effectColor: "#d3a625",
+    history:
+      "The Stunning Spell, introduced later in the Defence Against the Dark Arts curriculum given the greater care its casting and countering both require.",
+    counterSpell: "Ennervate",
+    commonUses: "Incapacitating a target briefly in a supervised duelling or defence exercise.",
+    relatedSpellIds: ["protego", "expelliarmus"],
   },
   {
     id: "expecto-patronum",
     name: "Expecto Patronum",
     incantation: "Expecto Patronum",
-    category: "Other",
+    category: "Defense Against the Dark Arts",
     description: "Conjures a Patronus, a guardian formed from the caster's happiest memory.",
-    difficulty: 5,
-    manaCost: 35,
     requiredYear: 6,
-    effectColor: "#e8e8f0",
+    history:
+      "Widely regarded as one of the most difficult charms in the standard curriculum, taught only once a student's magical control and emotional discipline are considered sufficient.",
+    commonUses: "Warding off Dementors and similar Dark creatures; see Resources → Patronus Charm.",
+    relatedSpellIds: ["expecto-patronum-corporeal"],
   },
   {
     id: "expecto-patronum-corporeal",
     name: "Corporeal Patronus",
     incantation: "Expecto Patronum",
-    category: "Other",
+    category: "Defense Against the Dark Arts",
     description: "A fully-formed Patronus, taking the shape of the caster's magical spirit animal.",
-    difficulty: 5,
-    manaCost: 40,
     requiredYear: 7,
-    effectColor: "#e8e8f0",
+    history:
+      "The fully realised form of the Patronus Charm - achieved by comparatively few witches and wizards, and taught only to advanced seventh-year students.",
+    commonUses: "The strongest known ward against Dementors, taking a form unique to the caster.",
+    relatedSpellIds: ["expecto-patronum"],
   },
 ];
 
-export const spellCategories: SpellCategory[] = ["Charms", "Defense", "Utility", "Other"];
+export const spellCategories: SpellCategory[] = ["Charms", "Defense Against the Dark Arts", "Utility Spells", "Other"];
+
+export function getSpell(id: string): Spell | undefined {
+  return spells.find((spell) => spell.id === id);
+}

@@ -1,11 +1,14 @@
 import { Link } from "react-router-dom";
-import { ListTodo } from "lucide-react";
+import { ListTodo, ClipboardCheck } from "lucide-react";
 import { useProfessorAssignments } from "../../context/ProfessorAssignmentsContext";
 import { useProfessorScope } from "../../utils/professorScope";
 import { getCourse } from "../../data/courses";
 import { Button } from "../../components/ui/Button";
+import { Card } from "../../components/ui/Card";
 import { ProfileSection } from "../../components/character/ProfileSection";
 import { LoadingState } from "../../components/ui/LoadingState";
+import { PageHeader } from "../../components/ui/PageHeader";
+import { EmptyState } from "../../components/ui/EmptyState";
 
 function formatDueDate(iso: string): string {
   return new Date(`${iso}T00:00:00`).toLocaleDateString(undefined, { month: "short", day: "numeric" });
@@ -38,20 +41,21 @@ export function AssignmentReviewQueuePage() {
 
   return (
     <div className="px-4 md:px-8 py-6 md:py-8 max-w-3xl mx-auto flex flex-col gap-5">
-      <div>
-        <h1 className="text-2xl md:text-3xl font-display text-gold-bright mb-2">✅ Review Queue</h1>
-        <p className="text-parchment-dim text-sm">Drafts waiting for your review before they go out.</p>
-      </div>
+      <PageHeader
+        title="Review Queue"
+        description="Drafts waiting for your review before they go out."
+        icon={ClipboardCheck}
+      />
 
-      <div className="flex flex-col gap-2">
-        {drafts.length === 0 ? (
-          <p className="text-parchment-dim text-sm">Nothing waiting for review - every draft has been published.</p>
-        ) : (
-          drafts.map((assignment) => {
+      {drafts.length === 0 ? (
+        <EmptyState message="Nothing waiting for review - every draft has been published." icon={ClipboardCheck} />
+      ) : (
+        <div className="flex flex-col gap-3">
+          {drafts.map((assignment) => {
             const teachingCourse = teachingCoursesById.get(assignment.teachingCourseId);
             const course = teachingCourse ? getCourse(teachingCourse.courseId) : undefined;
             return (
-              <div key={assignment.id} className="border border-parchment-dim/20 rounded-sm px-5 py-4">
+              <Card key={assignment.id} className="px-5 py-4">
                 <div className="flex items-start justify-between gap-3 mb-1">
                   <Link
                     to={`/professor/assignments/${assignment.id}`}
@@ -59,24 +63,23 @@ export function AssignmentReviewQueuePage() {
                   >
                     {assignment.title}
                   </Link>
-                  <Button onClick={() => setStatus(assignment.id, "Published")}>Publish</Button>
+                  <Button size="sm" onClick={() => setStatus(assignment.id, "Published")}>
+                    Publish
+                  </Button>
                 </div>
                 <p className="text-parchment-dim text-xs mb-2">
                   {course?.name ?? "Unknown Course"} &middot; {teachingCourse?.section ?? "Unassigned section"}{" "}
                   &middot; Due {formatDueDate(assignment.dueDate)}
                 </p>
                 <p className="text-parchment-dim text-sm">{assignment.description}</p>
-              </div>
+              </Card>
             );
-          })
-        )}
-      </div>
+          })}
+        </div>
+      )}
 
       <ProfileSection title="Bulk Publish" icon={ListTodo}>
-        <p className="text-parchment-dim text-sm">
-          Selecting several drafts and publishing them all at once will be available here in a future
-          milestone.
-        </p>
+        <p className="text-parchment-dim text-sm">Publish several drafts from the review queue at once.</p>
       </ProfileSection>
     </div>
   );

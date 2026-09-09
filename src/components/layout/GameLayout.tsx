@@ -3,7 +3,7 @@ import { Navigate, Outlet } from "react-router-dom";
 import { useGame } from "../../context/GameContext";
 import { useAuth } from "../../context/AuthContext";
 import { Sidebar } from "./Sidebar";
-import { BottomNav } from "./BottomNav";
+import { MobileNavDrawer } from "./MobileNavDrawer";
 import { Header } from "./Header";
 import { achievements, type Achievement } from "../../data/achievements";
 import { AchievementToast } from "../achievements/AchievementToast";
@@ -14,6 +14,7 @@ export function GameLayout() {
   const { user } = useAuth();
   const previousAchievements = useRef<string[] | null>(null);
   const [toastAchievement, setToastAchievement] = useState<Achievement | null>(null);
+  const [drawerOpen, setDrawerOpen] = useState(false);
 
   useEffect(() => {
     const previous = previousAchievements.current;
@@ -45,16 +46,21 @@ export function GameLayout() {
 
   return (
     <div className="min-h-screen bg-ink flex">
-      <Sidebar character={state.character} />
+      <Sidebar character={state.character} role="student" />
+      <MobileNavDrawer
+        open={drawerOpen}
+        onClose={() => setDrawerOpen(false)}
+        character={state.character}
+        role="student"
+      />
 
-      <div className="flex-1 min-w-0 pb-16 md:pb-0 flex flex-col">
-        <Header />
+      <div className="flex-1 min-w-0 flex flex-col">
+        <Header onMenuClick={() => setDrawerOpen(true)} />
         <main className="flex-1 min-w-0">
           <Outlet />
         </main>
       </div>
 
-      <BottomNav />
       <AchievementToast
         achievement={toastAchievement}
         onDismiss={() => setToastAchievement(null)}

@@ -3,15 +3,18 @@
 @import url("https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;0,700;1,500&family=Inter:wght@400;500;600&display=swap");
 
 @theme {
-  /* Core palette */
-  --color-ink: #15100c;
-  --color-void: #0b0805;
-  --color-parchment: #d8c49a;
-  --color-parchment-dim: #b5a37e;
-  --color-gold: #c9a646;
-  --color-gold-bright: #e6c568;
-  --color-ember: #8b2e2e;
-  --color-pine: #2f4a3c;
+  /* Core palette - deep navy/charcoal ground, parchment ink, gold reserved for highlights */
+  --color-ink: #12141b;
+  --color-void: #0a0b11;
+  --color-surface: #1b1e29;
+  --color-surface-hover: #232736;
+  --color-parchment: #e2ddd0;
+  --color-parchment-dim: #9b968a;
+  --color-gold: #b9944c;
+  --color-gold-bright: #d9b768;
+  --color-ember: #7c3238;
+  --color-pine: #2b4a3d;
+  --color-sapphire: #33507a;
 
   /* House colors, used dynamically once a player is sorted */
   --color-gryffindor-red: #740001;
@@ -57,5 +60,22 @@
       transition-duration: 0.01ms !important;
       scroll-behavior: auto !important;
     }
+  }
+}
+
+@layer utilities {
+  @keyframes fade-in {
+    from {
+      opacity: 0;
+      transform: translateY(6px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  .animate-fade-in {
+    animation: fade-in 0.4s ease-out both;
   }
 }

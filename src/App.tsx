@@ -3,34 +3,27 @@ import { Landing } from "./pages/Landing/Landing";
 import { Authentication } from "./pages/Authentication/Authentication";
 import { SignIn } from "./pages/SignIn/SignIn";
 import { CreateAccount } from "./pages/CreateAccount/CreateAccount";
-import { CharacterCreation } from "./pages/CharacterCreation/CharacterCreation";
-import { AcceptanceLetter } from "./pages/AcceptanceLetter/AcceptanceLetter";
 import { WandPage } from "./pages/Wand/Wand";
-import { HogwartsExpress } from "./pages/HogwartsExpress/HogwartsExpress";
 import { Sorting } from "./pages/Sorting/Sorting";
-import { CommonRoom } from "./pages/CommonRoom/CommonRoom";
 import { PatronusPage } from "./pages/Patronus/Patronus";
-import { OwlPostInboxPage } from "./pages/OwlPost/OwlPost";
+import { OwleryInboxPage } from "./pages/Owlery/Owlery";
 import { CoursesPage } from "./pages/Courses/Courses";
 import { CourseDetailPage } from "./pages/Courses/CourseDetail";
 import { SchedulePage } from "./pages/Schedule/Schedule";
-import { AcademicProgressPage } from "./pages/AcademicProgress/AcademicProgress";
 import { AssignmentsPage } from "./pages/Assignments/Assignments";
 import { AssignmentDetailPage } from "./pages/Assignments/AssignmentDetail";
 import { GradesPage } from "./pages/Grades/Grades";
 import { TranscriptPage } from "./pages/Transcript/Transcript";
-import { AcademicStandingPage } from "./pages/AcademicStanding/AcademicStanding";
-import { SemesterSummaryPage } from "./pages/SemesterSummary/SemesterSummary";
 import { CharacterPage } from "./pages/Character/Character";
-import { Tutorial } from "./pages/Tutorial/Tutorial";
 import { GameLayout } from "./components/layout/GameLayout";
 import { JourneyGate } from "./journey/JourneyGate";
 import { Dashboard } from "./pages/Dashboard/Dashboard";
 import { MapPage } from "./pages/Map/Map";
 import { LocationDetailPage } from "./pages/Map/LocationDetail";
 import { SpellsPage } from "./pages/Spells/Spells";
+import { SpellDetailPage } from "./pages/Spells/SpellDetail";
 import { PotionsPage } from "./pages/Potions/Potions";
-import { InventoryPage } from "./pages/Inventory/Inventory";
+import { PotionDetailPage } from "./pages/Potions/PotionDetail";
 import { LibraryPage } from "./pages/Library/Library";
 import { StudentsPage } from "./pages/Students/Students";
 import { StudentProfilePage } from "./pages/Students/StudentProfile";
@@ -67,6 +60,7 @@ import { ProfessorSubmissionDetailPage } from "./pages/Professor/ProfessorSubmis
 import { ProfessorGradebookPage } from "./pages/Professor/ProfessorGradebook";
 import { AdminLayout } from "./components/layout/AdminLayout";
 import { AdminDashboardPage } from "./pages/Admin/AdminDashboard";
+import { CourseAssignmentsPage } from "./pages/Admin/CourseAssignments";
 import { StudentRecordsPage } from "./pages/Admin/StudentRecords";
 import { ProfessorRecordsPage } from "./pages/Admin/ProfessorRecords";
 import { UserAdministrationPage } from "./pages/Admin/UserAdministration";
@@ -76,6 +70,19 @@ import { HouseCupManagementPage } from "./pages/Admin/HouseCupManagement";
 import { ResourceManagementPage } from "./pages/Admin/ResourceManagement";
 import { AnalyticsPage } from "./pages/Admin/Analytics";
 import { AdminProfilePage } from "./pages/Admin/Profile";
+import { AnnouncementManagementPage } from "./pages/Admin/AnnouncementManagement";
+import { ServiceAdministrationPage } from "./pages/Admin/ServiceAdministration";
+import { StaffLayout } from "./components/layout/StaffLayout";
+import {
+  librarianNavigation,
+  healerNavigation,
+  caretakerNavigation,
+  deputyHeadmasterNavigation,
+} from "./components/layout/navItems";
+import { LibrarianDashboardPage } from "./pages/Librarian/LibrarianDashboard";
+import { HealerDashboardPage } from "./pages/Healer/HealerDashboard";
+import { CaretakerDashboardPage } from "./pages/Caretaker/CaretakerDashboard";
+import { DeputyHeadmasterDashboardPage } from "./pages/DeputyHeadmaster/DeputyHeadmasterDashboard";
 import { RoleGate } from "./auth/RoleGate";
 import { AccountInactivePage } from "./pages/AccountInactive/AccountInactive";
 import { AccessErrorPage } from "./pages/AccessError/AccessError";
@@ -98,14 +105,15 @@ function App() {
         <Route path="/sign-in" element={<SignIn />} />
         <Route path="/create-account" element={<CreateAccount />} />
 
-        {/* Onboarding pipeline */}
-        <Route path="/create-character" element={<CharacterCreation />} />
-        <Route path="/acceptance-letter" element={<AcceptanceLetter />} />
+        {/* Year-Based Onboarding (Phase 6L): Year 1 only - the Wand
+            Ceremony, then the Sorting Hat. Character Creation, Acceptance
+            Letter, Hogwarts Express, Common Room, and Tutorial are gone;
+            the Admin now provides what they used to collect, and a
+            student's Character is synthesized automatically (see
+            GameContext.tsx). Patronus (Year 5 only) stays inside
+            GameLayout below, unchanged - see getJourneyStage.ts. */}
         <Route path="/wand" element={<WandPage />} />
-        <Route path="/hogwarts-express" element={<HogwartsExpress />} />
         <Route path="/sorting" element={<Sorting />} />
-        <Route path="/common-room" element={<CommonRoom />} />
-        <Route path="/tutorial" element={<Tutorial />} />
 
         {/* Hogwarts Student Portal: sidebar (desktop) / bottom nav (mobile) */}
         <Route element={<GameLayout />}>
@@ -116,27 +124,22 @@ function App() {
           <Route path="/house" element={<HouseCupPage />} />
           {/* Year 5+ Portal feature - not part of onboarding. */}
           <Route path="/patronus" element={<PatronusPage />} />
-          {/* Global (header icon), not part of the sectioned nav model. */}
-          <Route path="/owl-post" element={<OwlPostInboxPage />} />
+          {/* Phase 5 - Owlery: global (header icon) + a Resources nav entry,
+              replacing the old local-only Owl Post inbox. */}
+          <Route path="/owlery" element={<OwleryInboxPage />} />
 
           {/* Academics foundation */}
           <Route path="/courses" element={<CoursesPage />} />
           <Route path="/courses/:courseId" element={<CourseDetailPage />} />
           <Route path="/schedule" element={<SchedulePage />} />
-          <Route path="/academic-progress" element={<AcademicProgressPage />} />
           <Route path="/assignments" element={<AssignmentsPage />} />
           <Route path="/assignments/:assignmentId" element={<AssignmentDetailPage />} />
 
-          {/* Grades & Academic Records - standalone module, see CLAUDE.md */}
+          {/* Grades & Academic Records - Phase 2 collapsed Academic
+              Progress/Academic Standing/Semester Summary into these two,
+              see CLAUDE.md's Academics section. */}
           <Route path="/grades" element={<GradesPage />} />
           <Route path="/transcript" element={<TranscriptPage />} />
-          <Route path="/academic-standing" element={<AcademicStandingPage />} />
-          <Route path="/semester-summary" element={<SemesterSummaryPage />} />
-
-          {/* Phase 4 */}
-          <Route path="/spells" element={<SpellsPage />} />
-          <Route path="/potions" element={<PotionsPage />} />
-          <Route path="/inventory" element={<InventoryPage />} />
 
           {/* Phase 5 */}
           <Route path="/library" element={<LibraryPage />} />
@@ -149,6 +152,13 @@ function App() {
           <Route path="/announcements" element={<AnnouncementsPage />} />
           <Route path="/policies" element={<PoliciesPage />} />
           <Route path="/academic-calendar" element={<AcademicCalendarPage />} />
+          {/* Phase 4 - Spell/Potion Archive: reference material, lives under
+              Resources (not Academics) - see CLAUDE.md's Academics section
+              and the Phase 4 plan. */}
+          <Route path="/spells" element={<SpellsPage />} />
+          <Route path="/spells/:spellId" element={<SpellDetailPage />} />
+          <Route path="/potions" element={<PotionsPage />} />
+          <Route path="/potions/:potionId" element={<PotionDetailPage />} />
 
           {/* Student Services - standalone module, see CLAUDE.md */}
           <Route path="/hospital-wing" element={<HospitalWingPage />} />
@@ -182,6 +192,11 @@ function App() {
         <Route path="/professor/office-hours" element={<OfficeHoursPage />} />
         <Route path="/professor/announcements" element={<ProfessorAnnouncementsPage />} />
         <Route path="/professor/profile" element={<ProfessorProfilePage />} />
+        {/* Bug fix - Owlery is a real cross-account inbox (see
+            context/OwleryContext.tsx), but every non-student role previously
+            had no route/nav entry to reach it at all, so a message sent to a
+            Professor/Admin/staff account was undeliverable in practice. */}
+        <Route path="/professor/owlery" element={<OwleryInboxPage />} />
 
         {/* Assignment Management - Phase 3B, local seeded state only, see CLAUDE.md */}
         <Route path="/professor/assignments" element={<AssignmentDashboardPage />} />
@@ -205,12 +220,61 @@ function App() {
         <Route path="/admin/students" element={<StudentRecordsPage />} />
         <Route path="/admin/professors" element={<ProfessorRecordsPage />} />
         <Route path="/admin/users" element={<UserAdministrationPage />} />
+        <Route path="/admin/course-assignments" element={<CourseAssignmentsPage />} />
         <Route path="/admin/services" element={<ServicesManagementPage />} />
+        <Route path="/admin/announcements" element={<AnnouncementManagementPage />} />
+        <Route path="/admin/service-administration" element={<ServiceAdministrationPage />} />
         <Route path="/admin/calendar" element={<CalendarManagementPage />} />
         <Route path="/admin/house-cup" element={<HouseCupManagementPage />} />
         <Route path="/admin/resources" element={<ResourceManagementPage />} />
         <Route path="/admin/analytics" element={<AnalyticsPage />} />
         <Route path="/admin/profile" element={<AdminProfilePage />} />
+        {/* Bug fix - see the matching comment on /professor/owlery above. */}
+        <Route path="/admin/owlery" element={<OwleryInboxPage />} />
+      </Route>
+
+      {/* Phase 5 - Campus Services: four operational staff roles, each one
+          combined dashboard page behind the shared StaffLayout - same
+          standalone-module pattern as Professor/Admin above, no Student
+          Portal auth/onboarding gating. */}
+      <Route
+        element={
+          <StaffLayout sections={librarianNavigation} role="librarian" roleLabel="Librarian" owleryPath="/librarian/owlery" />
+        }
+      >
+        <Route path="/librarian/dashboard" element={<LibrarianDashboardPage />} />
+        <Route path="/librarian/owlery" element={<OwleryInboxPage />} />
+        <Route path="/librarian/settings" element={<SettingsPage />} />
+      </Route>
+      <Route
+        element={<StaffLayout sections={healerNavigation} role="healer" roleLabel="Healer" owleryPath="/healer/owlery" />}
+      >
+        <Route path="/healer/dashboard" element={<HealerDashboardPage />} />
+        <Route path="/healer/owlery" element={<OwleryInboxPage />} />
+        <Route path="/healer/settings" element={<SettingsPage />} />
+      </Route>
+      <Route
+        element={
+          <StaffLayout sections={caretakerNavigation} role="caretaker" roleLabel="Caretaker" owleryPath="/caretaker/owlery" />
+        }
+      >
+        <Route path="/caretaker/dashboard" element={<CaretakerDashboardPage />} />
+        <Route path="/caretaker/owlery" element={<OwleryInboxPage />} />
+        <Route path="/caretaker/settings" element={<SettingsPage />} />
+      </Route>
+      <Route
+        element={
+          <StaffLayout
+            sections={deputyHeadmasterNavigation}
+            role="deputy_headmaster"
+            roleLabel="Deputy Headmaster"
+            owleryPath="/deputy-headmaster/owlery"
+          />
+        }
+      >
+        <Route path="/deputy-headmaster/dashboard" element={<DeputyHeadmasterDashboardPage />} />
+        <Route path="/deputy-headmaster/owlery" element={<OwleryInboxPage />} />
+        <Route path="/deputy-headmaster/settings" element={<SettingsPage />} />
       </Route>
       </Route>
     </Routes>

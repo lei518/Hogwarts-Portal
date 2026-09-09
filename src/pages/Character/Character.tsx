@@ -1,57 +1,59 @@
 import { useNavigate } from "react-router-dom";
-import {
-  UserCircle,
-  Wand2,
-  Sparkles,
-  BarChart3,
-  GraduationCap,
-  Backpack,
-} from "lucide-react";
+import { UserCircle, Wand2, Sparkles, GraduationCap, IdCard } from "lucide-react";
 import { Button } from "../../components/ui/Button";
 import { useGame } from "../../context/GameContext";
+import { useAuth } from "../../context/AuthContext";
+import { useAcademicData } from "../../context/AcademicDataContext";
 import { houseInfo } from "../../data/sortingQuestions";
 import { achievements } from "../../data/achievements";
-import { courses } from "../../data/courses";
-import { getCourseStatus, getSpellMasterySummary } from "../../utils/academics";
-import { getFullName } from "../../utils/character";
+import { getFullName, formatYearOrdinal, getStudentId } from "../../utils/character";
 import { ProfileSection, ProfileField } from "../../components/character/ProfileSection";
 
+// Phase 3 - Profile Cleanup & University Identity System. The Student
+// Profile is now a Hogwarts university record, not an RPG character sheet:
+// Personal Information (real identity), Academic Information (House/Year/
+// Current Courses), and Magical Information (Wand/Patronus, the one part
+// of the old "Character" sheet that genuinely fits a Hogwarts university).
+// No level/XP/coins/inventory - see CLAUDE.md and the Phase 3 plan.
 export function CharacterPage() {
   const navigate = useNavigate();
   const { state } = useGame();
   const { character } = state;
+  const { user, profile } = useAuth();
+  const { courses, professorsById, loading } = useAcademicData();
 
-  if (!character || !character.house || !character.wand) {
+  // Year-Based Onboarding (Phase 6L): a signed-in student's Character is
+  // synthesized automatically and always gets a house (either from the
+  // Sorting Hat, or Admin-assigned for Year 2-7) before ever reaching
+  // portal territory - see JourneyGate. `!character.house` staying here is
+  // cheap defense against `houseInfo[...]` below crashing on an
+  // unexpected null, not a normal code path. `wand` is deliberately NOT
+  // required: most students (Year 2-7) never get one, since the Wand
+  // Ceremony is Year-1-only - see the "Magical Information" section below,
+  // which shows "Not Assigned" instead.
+  if (!character || !character.house) {
     return (
       <div className="min-h-screen bg-ink flex flex-col items-center justify-center px-6 text-center">
-        <h1 className="text-3xl text-gold-bright mb-4">No character yet</h1>
+        <h1 className="text-3xl text-gold-bright mb-4">Profile Still Loading</h1>
         <p className="text-parchment-dim mb-8">
-          You haven't created a Hogwarts character yet.
+          Your profile is still being set up. Try refreshing, or contact an administrator if
+          this persists.
         </p>
-        <Button onClick={() => navigate("/create-character")}>Begin Journey</Button>
       </div>
     );
   }
 
   const house = houseInfo[character.house];
   const unlockedAchievements = achievements.filter((a) => character.achievements.includes(a.id));
-  const completedCourses = courses.filter(
-    (course) => getCourseStatus(character, course) === "Completed"
-  ).length;
-
-  // Extensible on purpose: a future stat (Health, Mana, Stamina, Knowledge, ...)
-  // is one more entry here, not a layout change.
-  const stats: { label: string; value: string }[] = [
-    { label: "Level", value: String(character.level) },
-    { label: "XP", value: `${character.xp} / ${character.xpToNextLevel}` },
-    { label: "Coins", value: String(character.coins) },
-  ];
+  const currentCourses = courses.filter((course) => course.requiredYear <= character.year);
+  const studentId = user ? getStudentId(character, user.id) : "Not yet assigned";
+  const enrollmentStatus = profile?.status === "Active" ? "Active Student" : (profile?.status ?? "Unknown");
 
   return (
     <div className="px-6 md:px-10 py-8 md:py-10 max-w-5xl mx-auto flex flex-col gap-6">
       {/* Student Information - the page's masthead, not a summary card. */}
       <section
-        className="rounded-sm border overflow-hidden"
+        className="rounded-lg border overflow-hidden shadow-sm shadow-black/20"
         style={{ borderColor: `${house.colors.secondary}55` }}
       >
         <div
@@ -75,40 +77,72 @@ export function CharacterPage() {
               {getFullName(character)}
             </h1>
             <p className="text-lg" style={{ color: house.colors.secondary }}>
-              {house.emoji} {character.house} &middot; Year {character.year}
+              {character.house} &middot; {formatYearOrdinal(character.year)} Year
             </p>
           </div>
         </div>
 
-        <div className="bg-void/60 px-6 md:px-8 py-6 grid grid-cols-2 sm:grid-cols-4 gap-5">
+        <div className="bg-void/50 px-6 md:px-8 py-6 grid grid-cols-2 sm:grid-cols-4 gap-5">
           <ProfileField label="First Name" value={character.firstName} />
           <ProfileField label="Last Name" value={character.lastName} />
           <ProfileField label="Gender" value={formatGender(character.gender)} />
-          <ProfileField label="Year" value={`Year ${character.year}`} />
-          <ProfileField
-            label="House"
-            value={
-              <span style={{ color: house.colors.secondary }}>
-                {house.emoji} {character.house}
-              </span>
-            }
-          />
           <ProfileField label="Blood Status" value={character.bloodStatus ?? "Not yet determined"} />
         </div>
       </section>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-        <ProfileSection title="Magical Identity" icon={Wand2}>
+        <ProfileSection title="Personal Information" icon={IdCard}>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+            <ProfileField label="Full Name" value={getFullName(character)} />
+            <ProfileField label="Email" value={user?.email ?? "Not on file"} />
+            <ProfileField label="Student ID" value={studentId} />
+            <ProfileField label="Enrollment Status" value={enrollmentStatus} />
+          </div>
+        </ProfileSection>
+
+        <ProfileSection title="Academic Information" icon={GraduationCap}>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 mb-4">
+            <ProfileField
+              label="House"
+              value={<span style={{ color: house.colors.secondary }}>{character.house}</span>}
+            />
+            <ProfileField label="Year" value={`${formatYearOrdinal(character.year)} Year`} />
+          </div>
+          <p className="text-parchment-dim text-[11px] uppercase tracking-wide mb-1.5">Current Courses</p>
+          {loading ? (
+            <p className="text-parchment-dim text-sm">Loading courses…</p>
+          ) : currentCourses.length === 0 ? (
+            <p className="text-parchment-dim text-sm">No courses assigned.</p>
+          ) : (
+            <ul className="flex flex-col gap-1">
+              {currentCourses.map((course) => (
+                <li key={course.id} className="text-sm text-parchment truncate">
+                  {course.name}
+                  <span className="text-parchment-dim">
+                    {" "}
+                    &middot; {course.professorId ? (professorsById.get(course.professorId)?.name ?? "To Be Assigned") : "To Be Assigned"}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </ProfileSection>
+
+        <ProfileSection title="Magical Information" icon={Wand2}>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
             <ProfileField
               label="Wand"
               value={
-                <>
-                  {character.wand.wood} &middot; {character.wand.core}
-                  <span className="block text-parchment-dim text-sm font-body">
-                    {character.wand.lengthInches}" &middot; {character.wand.flexibility}
-                  </span>
-                </>
+                character.wand ? (
+                  <>
+                    {character.wand.wood} &middot; {character.wand.core}
+                    <span className="block text-parchment-dim text-sm font-body">
+                      {character.wand.lengthInches}" &middot; {character.wand.flexibility}
+                    </span>
+                  </>
+                ) : (
+                  "Not Assigned"
+                )
               }
             />
             <ProfileField
@@ -116,63 +150,10 @@ export function CharacterPage() {
               value={
                 character.patronus
                   ? `${character.patronus.icon} ${character.patronus.name}`
-                  : character.year < 5
-                    ? "Unlocks in Year 5"
-                    : "Not yet cast"
+                  : "Not Yet Discovered"
               }
             />
           </div>
-        </ProfileSection>
-
-        <ProfileSection title="Character Statistics" icon={BarChart3}>
-          <div className="grid grid-cols-3 gap-4 text-center">
-            {stats.map((stat) => (
-              <div key={stat.label} className="border border-parchment-dim/20 rounded-sm py-3">
-                <p className="text-parchment font-display">{stat.value}</p>
-                <p className="text-parchment-dim text-xs uppercase tracking-wide">{stat.label}</p>
-              </div>
-            ))}
-          </div>
-        </ProfileSection>
-
-        <ProfileSection title="Academic Summary" icon={GraduationCap}>
-          <div className="grid grid-cols-2 gap-4">
-            <ProfileField label="Current Year" value={`Year ${character.year}`} />
-            <ProfileField
-              label="Current House"
-              value={
-                <span style={{ color: house.colors.secondary }}>
-                  {house.emoji} {character.house}
-                </span>
-              }
-            />
-            <ProfileField label="Academic Standing" value="—" />
-            <ProfileField label="Completed Classes" value={`${completedCourses} of ${courses.length}`} />
-            <ProfileField label="Spell Mastery" value={getSpellMasterySummary(character)} />
-          </div>
-          <p className="text-parchment-dim text-xs mt-4">
-            Academic Standing will appear here once grades and exams are available.
-          </p>
-        </ProfileSection>
-
-        <ProfileSection title="Inventory Summary" icon={Backpack}>
-          <p className="text-parchment text-sm mb-1">
-            {character.inventory.length} item{character.inventory.length === 1 ? "" : "s"} carried
-          </p>
-          {character.inventory.length > 0 ? (
-            <p className="text-parchment-dim text-xs mb-4 truncate">
-              {character.inventory
-                .slice(0, 4)
-                .map((item) => item.name)
-                .join(", ")}
-              {character.inventory.length > 4 ? ", ..." : ""}
-            </p>
-          ) : (
-            <p className="text-parchment-dim text-xs mb-4">Your bag is empty for now.</p>
-          )}
-          <Button variant="secondary" onClick={() => navigate("/inventory")}>
-            View Inventory
-          </Button>
         </ProfileSection>
 
         <ProfileSection title="Achievements Summary" icon={Sparkles}>
@@ -180,12 +161,14 @@ export function CharacterPage() {
             {unlockedAchievements.length} of {achievements.length} unlocked
           </p>
           {unlockedAchievements.length > 0 ? (
-            <p className="text-parchment-dim text-xs mb-4 truncate">
-              {unlockedAchievements
-                .slice(-3)
-                .map((a) => `${a.emoji} ${a.title}`)
-                .join(" · ")}
-            </p>
+            <div className="flex flex-wrap gap-x-3 gap-y-1 text-parchment-dim text-xs mb-4">
+              {unlockedAchievements.slice(-3).map((a) => (
+                <span key={a.id} className="flex items-center gap-1.5">
+                  <a.icon size={12} className="text-gold/80" />
+                  {a.title}
+                </span>
+              ))}
+            </div>
           ) : (
             <p className="text-parchment-dim text-xs mb-4">No achievements unlocked yet.</p>
           )}

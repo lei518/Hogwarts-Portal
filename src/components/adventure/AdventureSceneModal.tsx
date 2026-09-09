@@ -35,11 +35,9 @@ export function AdventureSceneModal({ adventure, onClose }: AdventureSceneModalP
         questId: dispatchKey,
         questTitle: `${adventure.title}: ${nextScene.title}`,
         questDescription: nextScene.text,
-        xp: nextScene.reward.xp,
         housePoints: nextScene.reward.housePoints,
         knowledge: nextScene.reward.knowledge,
         relationshipChanges: nextScene.reward.relationshipChanges,
-        inventoryItem: nextScene.reward.inventoryItem,
         unlocksSpellId: nextScene.reward.unlocksSpellId,
         unlocksLocationId: nextScene.reward.unlocksLocationId,
       },
@@ -98,9 +96,6 @@ export function AdventureSceneModal({ adventure, onClose }: AdventureSceneModalP
         {currentScene.isEnding && currentScene.reward && (
           <div className="mt-2">
             <div className="flex flex-col gap-2 text-sm mb-6 border-t border-parchment-dim/10 pt-6">
-              {currentScene.reward.xp !== undefined && (
-                <Row label="XP" value={`+${currentScene.reward.xp}`} />
-              )}
               {currentScene.reward.knowledge !== undefined && (
                 <Row label="Knowledge" value={`+${currentScene.reward.knowledge}`} />
               )}
@@ -117,9 +112,6 @@ export function AdventureSceneModal({ adventure, onClose }: AdventureSceneModalP
                   value={`${change.delta > 0 ? "+" : ""}${change.delta} relationship`}
                 />
               ))}
-              {currentScene.reward.inventoryItem && (
-                <Row label="Item" value={currentScene.reward.inventoryItem.name} />
-              )}
             </div>
             <Button onClick={onClose} className="w-full">
               Return to the Castle

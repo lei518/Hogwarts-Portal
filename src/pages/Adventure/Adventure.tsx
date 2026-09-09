@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 import { Target, CalendarClock, ClipboardList, StickyNote, Bell, PartyPopper, Award, BookOpen, X } from "lucide-react";
 import { useGame } from "../../context/GameContext";
+import { useAcademicData } from "../../context/AcademicDataContext";
 import { getCurrentObjectives } from "../../utils/objectives";
 import { getUpcomingSchedule, getUpcomingAssignments } from "../../utils/academics";
 import { getUpcomingCalendarEvents } from "../../utils/academicCalendar";
@@ -9,9 +10,9 @@ import { getGradedCourses } from "../../utils/grades";
 import { getUpcomingDueDates } from "../../data/libraryServices";
 import { getCourse } from "../../data/courses";
 import { ProfileSection } from "../../components/character/ProfileSection";
-
-const inputClass =
-  "flex-1 bg-void/50 border border-parchment-dim/30 rounded-sm px-3 py-2 text-sm text-parchment placeholder:text-parchment-dim/50 focus:border-gold outline-none";
+import { PageHeader } from "../../components/ui/PageHeader";
+import { Input } from "../../components/ui/Input";
+import { Button } from "../../components/ui/Button";
 
 // The student's daily workspace. Every section either reflects a system
 // that owns its own data (Campus Map's objectives, Academics' schedule) or
@@ -20,6 +21,11 @@ const inputClass =
 export function QuestLogPage() {
   const { state, dispatch } = useGame();
   const { character } = state;
+  // Phase 7A/2 - depending on this both so the Planner re-renders once the
+  // live `assignments` table finishes loading (getUpcomingAssignments below
+  // reads data/assignments.ts's live-backed synchronous cache), and to get
+  // the live course catalog for getGradedCourses below.
+  const { courses } = useAcademicData();
   const [noteText, setNoteText] = useState("");
   const [reminderText, setReminderText] = useState("");
   const [reminderDate, setReminderDate] = useState("");
@@ -30,7 +36,7 @@ export function QuestLogPage() {
   const upcomingClasses = getUpcomingSchedule(character, 4);
   const upcomingEvents = getUpcomingCalendarEvents(4);
   const upcomingAssignments = getUpcomingAssignments(character, 4);
-  const gradedCourses = getGradedCourses(character);
+  const gradedCourses = getGradedCourses(character, courses);
   const upcomingDueDates = getUpcomingDueDates();
 
   function handleAddNote() {
@@ -51,10 +57,13 @@ export function QuestLogPage() {
 
   return (
     <div className="px-4 md:px-8 py-6 md:py-8 max-w-4xl mx-auto">
-      <h1 className="text-2xl md:text-3xl font-display text-gold-bright mb-2">🗓️ Student Planner</h1>
-      <p className="text-parchment-dim text-sm mb-8">Your daily workspace, gathered from across the portal.</p>
+      <PageHeader
+        title="Student Planner"
+        description="Your daily workspace, gathered from across the portal."
+        icon={CalendarClock}
+      />
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-8 mb-4">
         <ProfileSection title="Current Objectives" icon={Target}>
           {objectives.length === 0 ? (
             <p className="text-parchment-dim text-sm">You're all caught up.</p>
@@ -100,9 +109,9 @@ export function QuestLogPage() {
           )}
         </ProfileSection>
 
-        <ProfileSection title="Assignment Deadlines" icon={ClipboardList}>
+        <ProfileSection title="Upcoming Academic Activities" icon={ClipboardList}>
           {upcomingAssignments.length === 0 ? (
-            <p className="text-parchment-dim text-sm">Nothing due - you're caught up.</p>
+            <p className="text-parchment-dim text-sm">No upcoming academic activities.</p>
           ) : (
             <div className="flex flex-col gap-1.5">
               {upcomingAssignments.map((assignment) => {
@@ -119,7 +128,9 @@ export function QuestLogPage() {
                         day: "numeric",
                       })}
                     </span>{" "}
-                    <span className="text-parchment">{assignment.title}</span>
+                    <span className="text-parchment">
+                      {assignment.itemType}: {assignment.title}
+                    </span>
                     {course && <span className="text-parchment-dim"> &middot; {course.name}</span>}
                   </Link>
                 );
@@ -153,20 +164,17 @@ export function QuestLogPage() {
 
         <ProfileSection title="Personal Notes" icon={StickyNote}>
           <div className="flex gap-2 mb-3">
-            <input
+            <Input
               value={noteText}
               onChange={(e) => setNoteText(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && handleAddNote()}
               placeholder="Write a note..."
               aria-label="New personal note"
-              className={inputClass}
+              className="flex-1"
             />
-            <button
-              onClick={handleAddNote}
-              className="text-xs border border-gold/50 text-gold hover:bg-gold/10 rounded-sm px-3"
-            >
+            <Button variant="outline" size="sm" onClick={handleAddNote}>
               Add
-            </button>
+            </Button>
           </div>
           {character.personalNotes.length === 0 ? (
             <p className="text-parchment-dim text-xs">No notes yet.</p>
@@ -193,27 +201,24 @@ export function QuestLogPage() {
 
         <ProfileSection title="Reminders" icon={Bell}>
           <div className="flex gap-2 mb-3">
-            <input
+            <Input
               value={reminderText}
               onChange={(e) => setReminderText(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && handleAddReminder()}
               placeholder="Remind me to..."
               aria-label="New reminder"
-              className={inputClass}
+              className="flex-1"
             />
-            <input
+            <Input
               type="date"
               value={reminderDate}
               onChange={(e) => setReminderDate(e.target.value)}
               aria-label="Reminder due date"
-              className="bg-void/50 border border-parchment-dim/30 rounded-sm px-2 py-2 text-xs text-parchment outline-none focus:border-gold"
+              className="w-auto text-xs"
             />
-            <button
-              onClick={handleAddReminder}
-              className="text-xs border border-gold/50 text-gold hover:bg-gold/10 rounded-sm px-3"
-            >
+            <Button variant="outline" size="sm" onClick={handleAddReminder}>
               Add
-            </button>
+            </Button>
           </div>
           {character.reminders.length === 0 ? (
             <p className="text-parchment-dim text-xs">No reminders yet.</p>

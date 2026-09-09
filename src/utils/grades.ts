@@ -1,18 +1,9 @@
 import type { Character } from "../types/character";
-import type {
-  AcademicStanding,
-  AcademicStandingLevel,
-  GradeRecord,
-  SemesterSummary,
-  TranscriptRecord,
-} from "../types/grades";
-// Phase 5B: called synchronously from several page render bodies (Grades,
-// Transcript, Academic Standing, Semester Summary, ...) - see
-// repositories/*.ts's own comments on each Phase 5B transitional sync
-// accessor and when it goes away.
-import { gradesRepositorySync } from "../repositories/gradesRepository";
-import { coursesRepositorySync } from "../repositories/coursesRepository";
+import type { Course } from "../types/academics";
+import type { AcademicStandingLevel, AcademicSummary, GradeRecord, TranscriptRecord } from "../types/grades";
 import { calendarRepositorySync } from "../repositories/calendarRepository";
+import { getAssignmentsForCourse } from "../data/assignments";
+import { getMySubmissions } from "../data/submissions";
 import { getCourseStatus } from "./academics";
 
 const PLACEHOLDER = "—";
@@ -22,9 +13,6 @@ const PLACEHOLDER = "—";
 // only honest way to report this without a second points ledger.
 const ACADEMIC_HOUSE_POINT_SOURCES = ["Potions", "Assignments"];
 
-// Exported for bridges/gradeRecordBridge.ts - reused rather than
-// duplicated so a bridged Professor grade is lettered the same way a
-// seeded one is.
 export function percentageToLetter(percentage: number): string {
   if (percentage >= 90) return "A";
   if (percentage >= 80) return "B";
@@ -43,38 +31,78 @@ export function getCurrentSemester(): string {
   return "Autumn Term";
 }
 
-export function getTranscript(character: Character): TranscriptRecord {
-  const entries = gradesRepositorySync
-    .getAll()
-    .map((grade) => ({
-      courseId: grade.courseId,
-      finalGrade: grade.currentGrade,
-      credits: PLACEHOLDER,
-    }))
-    .filter((entry) => {
-      const course = coursesRepositorySync.getById(entry.courseId);
-      return course ? course.requiredYear <= character.year : false;
-    });
+// Phase 2 - Real Academic Workflow. Computed, not stored: averages the
+// signed-in student's graded assignment_submissions for this course's
+// assignments (see data/submissions.ts's live-backed cache). "Incomplete"
+// when nothing has been graded yet - never a fabricated grade.
+export function getCourseGrade(courseId: string): GradeRecord {
+  const assignmentIds = new Set(getAssignmentsForCourse(courseId).map((assignment) => assignment.id));
+  const graded = getMySubmissions().filter(
+    (submission) =>
+      assignmentIds.has(submission.assignmentId) &&
+      submission.status === "Graded" &&
+      submission.score !== undefined &&
+      submission.maxScore
+  );
+
+  if (graded.length === 0) {
+    return {
+      id: `grade-${courseId}`,
+      courseId,
+      currentGrade: "Incomplete",
+      status: "Incomplete",
+      remarks: "No graded assignments yet.",
+    };
+  }
+
+  const percentage = Math.round(
+    graded.reduce((sum, submission) => sum + (submission.score! / submission.maxScore!) * 100, 0) / graded.length
+  );
 
   return {
-    academicYear: `Year ${character.year}`,
-    semester: getCurrentSemester(),
-    entries,
-    gpa: PLACEHOLDER,
+    id: `grade-${courseId}`,
+    courseId,
+    currentGrade: percentageToLetter(percentage),
+    percentage,
+    status: "In Progress",
+    remarks: `Based on ${graded.length} graded assignment${graded.length === 1 ? "" : "s"}.`,
   };
 }
 
-export function getAcademicStanding(character: Character): AcademicStanding {
-  const eligibleCourses = coursesRepositorySync.getAll().filter((course) => course.requiredYear <= character.year);
+// Transcript's official record: every course the student has ever been
+// eligible for (requiredYear <= their current year), grouped by year -
+// generated from completed courses + computed grades, never re-authored
+// seed data.
+export function getTranscript(character: Character, courses: Course[]): TranscriptRecord {
+  const eligible = courses.filter((course) => course.requiredYear <= character.year);
+  const years = [...new Set(eligible.map((course) => course.requiredYear))].sort((a, b) => a - b);
+
+  const yearGroups = years.map((year) => ({
+    year,
+    entries: eligible
+      .filter((course) => course.requiredYear === year)
+      .map((course) => ({
+        courseId: course.id,
+        finalGrade: getCourseGrade(course.id).currentGrade,
+        credits: PLACEHOLDER,
+      })),
+  }));
+
+  return { yearGroups, gpa: PLACEHOLDER };
+}
+
+// Grades' own header summary - what Academic Progress/Academic Standing/
+// Semester Summary used to show as three separate pages (see Phase 2's
+// consolidation, CLAUDE.md's Academics section).
+export function getAcademicSummary(character: Character, courses: Course[]): AcademicSummary {
+  const eligibleCourses = courses.filter((course) => course.requiredYear <= character.year);
   const coursesCompleted = eligibleCourses.filter(
     (course) => getCourseStatus(character, course) === "Completed"
   ).length;
   const coursesInProgress = eligibleCourses.filter(
     (course) => getCourseStatus(character, course) === "In Progress"
   ).length;
-  const assignmentsSubmitted = Object.values(character.assignmentSubmissions).filter(
-    (submission) => submission.status === "Submitted"
-  ).length;
+  const assignmentsSubmitted = getMySubmissions().length;
   const housePointsEarnedThroughAcademics = character.housePointAwards
     .filter((award) => ACADEMIC_HOUSE_POINT_SOURCES.includes(award.awardedBy))
     .reduce((sum, award) => sum + Math.max(0, award.amount), 0);
@@ -87,8 +115,7 @@ export function getAcademicStanding(character: Character): AcademicStanding {
 
   return {
     standing,
-    gpa: PLACEHOLDER,
-    creditsEarned: PLACEHOLDER,
+    currentSemester: getCurrentSemester(),
     coursesCompleted,
     coursesInProgress,
     assignmentsSubmitted,
@@ -96,42 +123,14 @@ export function getAcademicStanding(character: Character): AcademicStanding {
   };
 }
 
-// Phase 2 Integration Layer: the Student Planner's "Latest Grades" preview
-// reads this instead of re-filtering `grades` itself - Grades stays the one
-// place that logic lives. Only courses with a recorded percentage are
-// "graded" - "Incomplete" records (e.g. Flying) are deliberately excluded
-// rather than shown as a fabricated grade.
-export function getGradedCourses(character: Character): GradeRecord[] {
-  return gradesRepositorySync.getAll().filter((grade) => {
-    const course = coursesRepositorySync.getById(grade.courseId);
-    return course && course.requiredYear <= character.year && grade.percentage !== undefined;
-  });
-}
-
-export function getSemesterSummary(character: Character): SemesterSummary {
-  const eligibleGrades = gradesRepositorySync.getAll().filter((grade) => {
-    const course = coursesRepositorySync.getById(grade.courseId);
-    return course ? course.requiredYear <= character.year : false;
-  });
-  const graded = eligibleGrades.filter((grade) => grade.percentage !== undefined);
-  const averagePercentage = graded.length
-    ? Math.round(graded.reduce((sum, grade) => sum + (grade.percentage ?? 0), 0) / graded.length)
-    : null;
-
-  const assignmentsCompleted = Object.values(character.assignmentSubmissions).filter(
-    (submission) => submission.status === "Submitted"
-  ).length;
-
-  return {
-    semester: getCurrentSemester(),
-    coursesTaken: eligibleGrades.length,
-    assignmentsCompleted,
-    averageGrade:
-      averagePercentage === null ? "Not available" : `${percentageToLetter(averagePercentage)} (${averagePercentage}%)`,
-    standing: getAcademicStanding(character).standing,
-    // A per-assignment grade already appears here the moment a matching
-    // Professor Portal review is bridged (see bridges/gradeRecordBridge.ts);
-    // an end-of-term written comment is a separate, still-unbuilt feature.
-    professorFeedback: "A written term-end note from your professor isn't available yet.",
-  };
+// The Planner's "Latest Grades" preview reads this instead of re-filtering
+// grades itself - Grades stays the one place that logic lives. Only
+// courses with at least one graded submission are "graded" - a course
+// with nothing graded yet is deliberately excluded rather than shown with
+// a fabricated grade.
+export function getGradedCourses(character: Character, courses: Course[]): GradeRecord[] {
+  return courses
+    .filter((course) => course.requiredYear <= character.year)
+    .map((course) => getCourseGrade(course.id))
+    .filter((grade) => grade.percentage !== undefined);
 }

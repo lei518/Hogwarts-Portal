@@ -1,12 +1,14 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
-import { Lock } from "lucide-react";
+import { Lock, ArrowLeft, MapPin, Sparkles } from "lucide-react";
 import { useGame } from "../../context/GameContext";
 import { getLocation } from "../../data/locations";
 import { getAdventureByLocation, type Adventure } from "../../data/adventures";
 import { getCourse } from "../../data/courses";
 import { initialNpcs } from "../../data/npcs";
 import { Button } from "../../components/ui/Button";
+import { Card } from "../../components/ui/Card";
+import { Badge } from "../../components/ui/Badge";
 import { LocationIllustration } from "../../components/map/LocationIllustration";
 import { AdventureSceneModal } from "../../components/adventure/AdventureSceneModal";
 import { ProfileField } from "../../components/character/ProfileSection";
@@ -66,12 +68,13 @@ export function LocationDetailPage() {
     <div className="px-4 md:px-8 py-6 md:py-8 max-w-3xl mx-auto flex flex-col gap-5">
       <button
         onClick={() => navigate("/map")}
-        className="text-gold hover:text-gold-bright text-xs text-left"
+        className="flex items-center gap-1.5 text-gold hover:text-gold-bright text-xs text-left w-fit"
       >
-        &larr; Back to Campus Map
+        <ArrowLeft size={14} />
+        Back to Campus Map
       </button>
 
-      <section className="border border-parchment-dim/20 rounded-sm overflow-hidden">
+      <Card as="section" className="overflow-hidden">
         <div className="relative">
           <LocationIllustration locationId={location.id} />
           {npcsHere.length > 0 && (
@@ -81,7 +84,6 @@ export function LocationDetailPage() {
                   key={npc.id}
                   className="flex items-center gap-1.5 bg-ink/85 border border-gold/30 rounded-full px-2.5 py-1 text-xs text-parchment backdrop-blur-sm"
                 >
-                  <span aria-hidden="true">{npc.emoji}</span>
                   {npc.name}
                 </span>
               ))}
@@ -90,7 +92,9 @@ export function LocationDetailPage() {
         </div>
 
         <div className="px-6 py-6">
-          <p className="text-3xl mb-2">{location.emoji}</p>
+          <span className="flex items-center justify-center w-10 h-10 rounded-lg bg-gold/10 border border-gold/20 text-gold-bright mb-3">
+            <MapPin size={19} />
+          </span>
           <h1 className="text-2xl md:text-3xl font-display text-gold-bright mb-3">{location.name}</h1>
           <p className="text-parchment-dim text-sm leading-relaxed mb-5">{location.description}</p>
 
@@ -107,12 +111,10 @@ export function LocationDetailPage() {
               </p>
               <div className="flex flex-wrap gap-2">
                 {relatedCourses.map((course) => (
-                  <Link
-                    key={course!.id}
-                    to={`/courses/${course!.id}`}
-                    className="text-xs border border-parchment-dim/25 rounded-full px-3 py-1 text-parchment hover:border-gold hover:text-gold-bright transition-colors"
-                  >
-                    {course!.name}
+                  <Link key={course!.id} to={`/courses/${course!.id}`}>
+                    <Badge className="hover:border-gold hover:text-gold-bright transition-colors cursor-pointer">
+                      {course!.name}
+                    </Badge>
                   </Link>
                 ))}
               </div>
@@ -126,12 +128,7 @@ export function LocationDetailPage() {
               </p>
               <div className="flex flex-wrap gap-2">
                 {location.relatedServices.map((service) => (
-                  <span
-                    key={service}
-                    className="text-xs border border-parchment-dim/25 rounded-full px-3 py-1 text-parchment-dim"
-                  >
-                    {service}
-                  </span>
+                  <Badge key={service}>{service}</Badge>
                 ))}
               </div>
             </div>
@@ -144,7 +141,7 @@ export function LocationDetailPage() {
             <ul className="flex flex-col gap-1">
               {npcsHere.map((npc) => (
                 <li key={npc.id} className="text-sm text-parchment">
-                  {npc.emoji} {npc.name} &middot; {npc.role}
+                  {npc.name} &middot; {npc.role}
                 </li>
               ))}
             </ul>
@@ -160,13 +157,14 @@ export function LocationDetailPage() {
               </p>
             ) : (
               <Button variant="secondary" onClick={() => setActiveAdventure(adventure)} className="w-full">
-                {adventure.emoji} {adventure.title}
+                <Sparkles size={15} />
+                {adventure.title}
                 {adventureCompleted ? " (Replay)" : ""}
               </Button>
             )}
           </div>
         )}
-      </section>
+      </Card>
 
       {activeAdventure && (
         <AdventureSceneModal adventure={activeAdventure} onClose={() => setActiveAdventure(null)} />

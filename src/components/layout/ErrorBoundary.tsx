@@ -1,5 +1,7 @@
 import { Component, type ReactNode } from "react";
+import { TriangleAlert } from "lucide-react";
 import { Button } from "../ui/Button";
+import { Card } from "../ui/Card";
 
 interface ErrorBoundaryProps {
   children: ReactNode;
@@ -12,8 +14,8 @@ interface ErrorBoundaryState {
 function ErrorFallback() {
   return (
     <div className="min-h-screen bg-ink flex items-center justify-center px-4">
-      <div className="max-w-md w-full border border-parchment-dim/20 rounded-sm px-8 py-10 text-center">
-        <p className="text-4xl mb-4">🪄</p>
+      <Card className="max-w-md w-full px-8 py-10 text-center">
+        <TriangleAlert size={32} className="text-parchment-dim/60 mx-auto mb-4" />
         <h1 className="text-2xl font-display text-gold-bright mb-3">Something's Gone a Bit Wrong</h1>
         <p className="text-parchment-dim text-sm mb-8">
           Even the sturdiest magic misfires occasionally. Try reloading the portal, or head back to somewhere
@@ -25,7 +27,7 @@ function ErrorFallback() {
             Return Home
           </Button>
         </div>
-      </div>
+      </Card>
     </div>
   );
 }

@@ -1,50 +1,59 @@
 import { useEffect, useState, type FormEvent } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { Button } from "../../components/ui/Button";
+import { Card } from "../../components/ui/Card";
+import { FormField } from "../../components/ui/FormField";
+import { Input } from "../../components/ui/Input";
 import { useAuth } from "../../context/AuthContext";
 import { useGame } from "../../context/GameContext";
-
-const inputClass =
-  "w-full bg-void/50 border border-parchment-dim/30 rounded-sm px-3 py-2.5 text-parchment focus:border-gold outline-none";
+import { ROLE_HOME } from "../../auth/resolveRoleRedirect";
 
 export function SignIn() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { user, role, loading: authLoading, signIn } = useAuth();
-  const { state, syncStatus, pendingGuestAdoption } = useGame();
+  const { syncStatus, pendingGuestAdoption } = useGame();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
-  // Authentication Foundation (Phase 6A): a Professor or Admin has no
-  // Character/cloud-save concept at all, so they skip straight to their
-  // own dashboard - only a student falls through to the existing
-  // character-bearing-vs-brand-new logic below, unchanged. `authLoading`
-  // guards against acting on `role` before AuthContext's profile fetch
-  // (see its own comment) has actually resolved it.
-  useEffect(() => {
-    if (!user || authLoading) return;
-    if (role === "professor") {
-      navigate("/professor/dashboard", { replace: true });
-      return;
-    }
-    if (role === "admin") {
-      navigate("/admin/dashboard", { replace: true });
-      return;
-    }
-    if (role !== "student") return;
+  // Session Management (Phase 6K) - InactivityManager navigates here with
+  // this state when it signs someone out after 30 idle minutes; read once
+  // on mount so a later re-render (e.g. after typing) doesn't keep
+  // re-deriving it from a `location.state` that a normal sign-in redirect
+  // never sets.
+  const [timeoutMessage] = useState<string | null>(() =>
+    (location.state as { reason?: string } | null)?.reason === "inactivity"
+      ? "Your session has expired due to inactivity. Please sign in again."
+      : null
+  );
 
-    // Once signed in, wait for the cloud save fetch to settle (and any
-    // guest-save-adoption choice to resolve) before deciding where a
-    // character-bearing player goes vs. a brand new one.
-    if (state.character) {
-      navigate("/dashboard", { replace: true });
+  // Authentication Foundation (Phase 6A): a Professor, Admin, or (Phase 5)
+  // staff role has no Character/cloud-save concept at all, so they skip
+  // straight to their own dashboard via the same ROLE_HOME map RoleGate's
+  // own resolveRoleRedirect.ts uses. `authLoading` guards against acting
+  // on `role` before AuthContext's profile fetch (see its own comment) has
+  // actually resolved it.
+  //
+  // Year-Based Onboarding (Phase 6L): a student's Character is
+  // synthesized automatically (see GameContext.tsx), not hand-built on a
+  // Character Creation page - so this always navigates to /dashboard once
+  // the cloud-save check (and any guest-save-adoption choice) has
+  // settled, whether or not a Character exists yet. JourneyGate's own
+  // `cloudCheckComplete` guard covers the remaining gap, so GameLayout
+  // never has to bounce through Landing in between.
+  useEffect(() => {
+    if (!user || authLoading || !role) return;
+    if (role !== "student") {
+      navigate(ROLE_HOME[role], { replace: true });
       return;
     }
+
     if (syncStatus !== "saving" && !pendingGuestAdoption) {
-      navigate("/create-character", { replace: true });
+      navigate(ROLE_HOME.student, { replace: true });
     }
-  }, [user, role, authLoading, state.character, syncStatus, pendingGuestAdoption, navigate]);
+  }, [user, role, authLoading, syncStatus, pendingGuestAdoption, navigate]);
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
@@ -57,18 +66,21 @@ export function SignIn() {
 
   return (
     <div className="min-h-screen bg-ink flex flex-col items-center justify-center px-6 py-16">
-      <div className="w-full max-w-sm border border-gold/30 rounded-sm bg-ink p-8">
-        <h1 className="text-2xl font-display text-gold-bright mb-1 text-center">Welcome Back</h1>
+      <Card className="w-full max-w-sm p-8">
+        <h1 className="text-2xl font-display text-parchment mb-1 text-center">Welcome Back</h1>
         <p className="text-parchment-dim text-sm text-center mb-6">
           Sign in to bring your saved progress with you.
         </p>
 
+        {timeoutMessage && (
+          <p role="status" className="text-gold-bright text-sm text-center mb-4">
+            {timeoutMessage}
+          </p>
+        )}
+
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-          <div>
-            <label htmlFor="signin-email" className="block text-xs uppercase tracking-wide text-parchment-dim mb-1.5">
-              Email
-            </label>
-            <input
+          <FormField label="Email" htmlFor="signin-email">
+            <Input
               id="signin-email"
               type="email"
               required
@@ -76,23 +88,20 @@ export function SignIn() {
               autoFocus
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className={inputClass}
+              error={Boolean(error)}
             />
-          </div>
-          <div>
-            <label htmlFor="signin-password" className="block text-xs uppercase tracking-wide text-parchment-dim mb-1.5">
-              Password
-            </label>
-            <input
+          </FormField>
+          <FormField label="Password" htmlFor="signin-password">
+            <Input
               id="signin-password"
               type="password"
               required
               autoComplete="current-password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className={inputClass}
+              error={Boolean(error)}
             />
-          </div>
+          </FormField>
 
           {error && (
             <p role="alert" className="text-ember text-sm">
@@ -100,7 +109,7 @@ export function SignIn() {
             </p>
           )}
 
-          <Button type="submit" disabled={submitting} className="w-full disabled:opacity-40">
+          <Button type="submit" disabled={submitting} className="w-full">
             {submitting ? "Please wait..." : "Sign In"}
           </Button>
 
@@ -111,7 +120,7 @@ export function SignIn() {
             Need an account? Create one
           </Link>
         </form>
-      </div>
+      </Card>
     </div>
   );
 }

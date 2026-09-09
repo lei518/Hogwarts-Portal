@@ -1,23 +1,34 @@
 import type { CoursesRepository } from "./interfaces/repositoryTypes";
+import type { Course } from "../types/academics";
 import { courses, getCourse } from "../data/courses";
+import { courseAssignmentsRepository } from "./courseAssignmentsRepository";
 
-// Phase 5B: the public, Promise-based interface Phase 5C will back with
-// real Supabase calls. No network yet - still the same seed data as
-// Phase 5A, just wrapped in `async` per the milestone's rules.
+// Phase 7A - Live Academic Data. The course catalog itself (name, classroom,
+// description, requiredYear) stays the seeded reference content in
+// data/courses.ts - it's curriculum, not a person, and the task explicitly
+// preserves it. Only `professorId` is resolved live here, from the
+// course_professor_assignments table - a course with no assignment
+// resolves to `professorId: null` ("To Be Assigned"), never a fabricated
+// name.
+async function resolveCourses(): Promise<Course[]> {
+  const assignments = await courseAssignmentsRepository.getAll();
+  const professorByCourse = new Map(assignments.map((a) => [a.courseId, a.professorUserId]));
+  return courses.map((course) => ({ ...course, professorId: professorByCourse.get(course.id) ?? null }));
+}
+
 export const coursesRepository: CoursesRepository = {
-  getAll: async () => courses,
-  getById: async (id) => getCourse(id),
+  getAll: async () => resolveCourses(),
+  getById: async (id) => (await resolveCourses()).find((course) => course.id === id),
+  getForProfessor: async (professorUserId) =>
+    (await resolveCourses()).filter((course) => course.professorId === professorUserId),
 };
 
-// Phase 5B transitional escape hatch. utils/grades.ts and
-// bridges/assignmentBridge.ts call this synchronously from deep inside
-// call chains several layers below page render bodies (CourseDetail,
-// AcademicStanding, Transcript, Grades, ...) - making those async would
-// force page-level rewrites, which this milestone explicitly avoids.
-// Reads the exact same source the async methods above wrap; zero behavior
-// difference, since Phase 5B never touches real, possibly-slow, network
-// data. Phase 5C removes this once those call sites migrate to real async
-// data-fetching (see that phase's own deferred-items list).
+// Phase 5B transitional escape hatch - see utils/grades.ts, the one
+// remaining synchronous caller (Grades/Transcript/AcademicStanding/
+// SemesterSummary). It only ever reads requiredYear/name from a course, so
+// this keeps returning the seeded catalog directly - never the live
+// professor join, which needs a real network round trip and has no bearing
+// on anything utils/grades.ts computes.
 export const coursesRepositorySync = {
   getAll: () => courses,
   getById: (id: string) => getCourse(id),

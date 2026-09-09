@@ -1,26 +1,13 @@
-import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
+import { createContext, useContext, useMemo, type ReactNode } from "react";
 import type { ProfessorProfile } from "../types/professorPortal";
-import { professorPortalRepository } from "../repositories/professorPortalRepository";
 import { useAuth } from "./AuthContext";
 
-// Authentication Foundation (Phase 6B). Owns exactly one thing: which
-// ProfessorProfile the currently signed-in Supabase user resolves to.
-// Supabase Auth -> AuthContext -> professorPortalRepository ->
-// (this context) -> Professor pages, per this milestone's own ownership
-// chain. Deliberately narrow - teaching courses, roster, office hours, and
-// announcements are NOT owned here; see utils/professorScope.ts's hooks,
-// which read `professorId` from this context and go through the
-// repository themselves, so this context never grows into a second
-// ProfessorAssignmentsContext/ProfessorGradesContext-shaped thing.
-//
-// Identity resolution is a name match against the seeded
-// professorProfiles (see data/professorPortal.ts's
-// getProfessorProfileByDisplayName), the same honest, no-fabrication rule
-// bridges/gradeBridge.ts already established for matching a Character to a
-// StudentSubmission: no id is invented, and "no match" is a normal,
-// expected outcome (a professor with no seeded persona still gets a
-// profile, built from their real Supabase display name, just with empty
-// teaching data - never another professor's).
+// Phase 7A - Live Academic Data. Identity is now the real signed-in
+// Supabase user directly - `professorId` is their real `user.id`, not a
+// seeded-persona name match (see the old getProfessorProfileByDisplayName,
+// removed). This is what makes course_professor_assignments,
+// course_professor lookups, and Assignment authorship all resolve to a
+// real account instead of "Professor Severus Snape" or nothing.
 interface AuthenticatedProfessorContextValue {
   professorId: string | null;
   profile: ProfessorProfile | null;
@@ -30,50 +17,29 @@ interface AuthenticatedProfessorContextValue {
 
 const AuthenticatedProfessorContext = createContext<AuthenticatedProfessorContextValue | undefined>(undefined);
 
-function buildUnmatchedProfile(displayName: string): ProfessorProfile {
-  return {
-    id: displayName,
-    displayName,
-    title: "Professor",
-    department: "Not yet on file",
-    officeLocation: "Not yet on file",
-    bio: "No profile information is on file yet.",
-    yearsAtHogwarts: 0,
-  };
-}
-
 export function AuthenticatedProfessorProvider({ children }: { children: ReactNode }) {
-  const { profile: authProfile, loading: authLoading } = useAuth();
-  const [profile, setProfile] = useState<ProfessorProfile | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [refreshToken, setRefreshToken] = useState(0);
+  const { user, profile: authProfile, loading: authLoading } = useAuth();
 
-  useEffect(() => {
-    if (authLoading) return;
-    if (!authProfile) {
-      setProfile(null);
-      setLoading(false);
-      return;
-    }
-    let cancelled = false;
-    setLoading(true);
-    professorPortalRepository.getProfileByDisplayName(authProfile.displayName).then((found) => {
-      if (cancelled) return;
-      setProfile(found ?? buildUnmatchedProfile(authProfile.displayName));
-      setLoading(false);
-    });
-    return () => {
-      cancelled = true;
+  const profile = useMemo<ProfessorProfile | null>(() => {
+    if (!user || !authProfile) return null;
+    return {
+      id: user.id,
+      displayName: authProfile.displayName,
+      title: "Professor",
+      department: "Not yet on file",
+      officeLocation: "Not yet on file",
+      bio: "No profile information is on file yet.",
+      yearsAtHogwarts: 0,
     };
-  }, [authProfile, authLoading, refreshToken]);
+  }, [user, authProfile]);
 
   return (
     <AuthenticatedProfessorContext.Provider
       value={{
-        professorId: profile?.id ?? null,
+        professorId: user?.id ?? null,
         profile,
-        loading,
-        refresh: () => setRefreshToken((token) => token + 1),
+        loading: authLoading,
+        refresh: () => {},
       }}
     >
       {children}

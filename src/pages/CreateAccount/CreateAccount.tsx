@@ -1,16 +1,16 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Button } from "../../components/ui/Button";
+import { Card } from "../../components/ui/Card";
+import { FormField } from "../../components/ui/FormField";
+import { Input } from "../../components/ui/Input";
 import { useAuth } from "../../context/AuthContext";
 import { useGame } from "../../context/GameContext";
-
-const inputClass =
-  "w-full bg-void/50 border border-parchment-dim/30 rounded-sm px-3 py-2.5 text-parchment focus:border-gold outline-none";
 
 export function CreateAccount() {
   const navigate = useNavigate();
   const { user, signUp } = useAuth();
-  const { state, syncStatus, pendingGuestAdoption } = useGame();
+  const { syncStatus, pendingGuestAdoption } = useGame();
   const [displayName, setDisplayName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -18,19 +18,18 @@ export function CreateAccount() {
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
-  // Same reactive hand-off as Sign In: wait for the fetch (and any guest-save
-  // adoption choice) to settle before deciding where to send the player. A
-  // brand new account normally has no cloud character yet.
+  // Same reactive hand-off as Sign In: wait for the fetch (and any
+  // guest-save adoption choice) to settle before navigating. A signed-up
+  // student's Character is synthesized automatically (see
+  // GameContext.tsx) rather than hand-built here, so this always heads to
+  // /dashboard once the wait clears - JourneyGate's own
+  // `cloudCheckComplete` guard covers the brief remaining gap.
   useEffect(() => {
     if (!user) return;
-    if (state.character) {
-      navigate("/dashboard", { replace: true });
-      return;
-    }
     if (syncStatus !== "saving" && !pendingGuestAdoption) {
-      navigate("/create-character", { replace: true });
+      navigate("/dashboard", { replace: true });
     }
-  }, [user, state.character, syncStatus, pendingGuestAdoption, navigate]);
+  }, [user, syncStatus, pendingGuestAdoption, navigate]);
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
@@ -53,47 +52,36 @@ export function CreateAccount() {
 
   return (
     <div className="min-h-screen bg-ink flex flex-col items-center justify-center px-6 py-16">
-      <div className="w-full max-w-sm border border-gold/30 rounded-sm bg-ink p-8">
-        <h1 className="text-2xl font-display text-gold-bright mb-1 text-center">Student Registration</h1>
+      <Card className="w-full max-w-sm p-8">
+        <h1 className="text-2xl font-display text-parchment mb-1 text-center">Student Registration</h1>
         <p className="text-parchment-dim text-sm text-center mb-6">
           Save your progress and carry it to any device.
         </p>
 
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-          <div>
-            <label htmlFor="signup-display-name" className="block text-xs uppercase tracking-wide text-parchment-dim mb-1.5">
-              Display Name
-            </label>
-            <input
+          <FormField label="Display Name" htmlFor="signup-display-name">
+            <Input
               id="signup-display-name"
               required
               autoComplete="name"
               autoFocus
-              placeholder="e.g. Harry Potter"
+              placeholder="Your full name"
               value={displayName}
               onChange={(e) => setDisplayName(e.target.value)}
-              className={inputClass}
             />
-          </div>
-          <div>
-            <label htmlFor="signup-email" className="block text-xs uppercase tracking-wide text-parchment-dim mb-1.5">
-              Email
-            </label>
-            <input
+          </FormField>
+          <FormField label="Email" htmlFor="signup-email">
+            <Input
               id="signup-email"
               type="email"
               required
               autoComplete="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className={inputClass}
             />
-          </div>
-          <div>
-            <label htmlFor="signup-password" className="block text-xs uppercase tracking-wide text-parchment-dim mb-1.5">
-              Password
-            </label>
-            <input
+          </FormField>
+          <FormField label="Password" htmlFor="signup-password">
+            <Input
               id="signup-password"
               type="password"
               required
@@ -101,14 +89,11 @@ export function CreateAccount() {
               autoComplete="new-password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className={inputClass}
+              error={Boolean(error)}
             />
-          </div>
-          <div>
-            <label htmlFor="signup-confirm-password" className="block text-xs uppercase tracking-wide text-parchment-dim mb-1.5">
-              Confirm Password
-            </label>
-            <input
+          </FormField>
+          <FormField label="Confirm Password" htmlFor="signup-confirm-password">
+            <Input
               id="signup-confirm-password"
               type="password"
               required
@@ -116,9 +101,9 @@ export function CreateAccount() {
               autoComplete="new-password"
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
-              className={inputClass}
+              error={Boolean(error)}
             />
-          </div>
+          </FormField>
 
           {error && (
             <p role="alert" className="text-ember text-sm">
@@ -126,7 +111,7 @@ export function CreateAccount() {
             </p>
           )}
 
-          <Button type="submit" disabled={submitting} className="w-full disabled:opacity-40">
+          <Button type="submit" disabled={submitting} className="w-full">
             {submitting ? "Please wait..." : "Create Account"}
           </Button>
 
@@ -137,7 +122,7 @@ export function CreateAccount() {
             Already have an account? Sign in
           </Link>
         </form>
-      </div>
+      </Card>
     </div>
   );
 }

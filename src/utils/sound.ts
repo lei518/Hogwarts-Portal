@@ -33,22 +33,6 @@ function playTone(frequency: number, durationMs: number, type: OscillatorType = 
   }
 }
 
-export function playClickSound(enabled: boolean): void {
-  if (!enabled) return;
-  playTone(660, 90);
-}
-
-export function playSuccessSound(enabled: boolean): void {
-  if (!enabled) return;
-  playTone(523, 120);
-  setTimeout(() => playTone(784, 160), 110);
-}
-
-export function playFailureSound(enabled: boolean): void {
-  if (!enabled) return;
-  playTone(220, 220, "triangle");
-}
-
 export function playAchievementSound(enabled: boolean): void {
   if (!enabled) return;
   playTone(523, 130);

@@ -1,75 +1,88 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
-import type { StudentSubmission, SubmissionGrade } from "../types/professorPortal";
-import { studentSubmissionsRepository } from "../repositories/studentSubmissionsRepository";
+import type { Submission } from "../types/academics";
+import { submissionsRepository } from "../repositories/submissionsRepository";
+import { useAuth } from "./AuthContext";
+import { useOwlery } from "./OwleryContext";
 
-// Grade Management (Phase 3C) - a local, in-memory grading workspace,
-// entirely separate from the Student Portal's GradeRecord/Character data.
-// Mirrors ProfessorAssignmentsContext exactly: session-local React state,
-// no reducer, no persistence, no backend. Mounted once by ProfessorLayout
-// so every Grade Management page shares the same session-local state.
-//
-// Phase 5B: seeded through studentSubmissionsRepository's real (Promise-
-// based) interface on mount - see ProfessorAssignmentsContext's own
-// comment for why `loading` is brief and every later write stays
-// synchronous local state.
+// Phase 2 - Real Academic Workflow. Backed by the live
+// `assignment_submissions` table (see repositories/submissionsRepository.ts) -
+// RLS scopes getAll() to exactly the submissions the signed-in professor
+// can grade, so no client-side filtering by professor happens here (that
+// scoping down to *this professor's own* teaching courses/sections still
+// happens in utils/professorScope.ts, unchanged). `grade` is the one write
+// action: it sets score/maxScore/feedback and moves status to "Graded" in
+// one atomic update - there's no separate "mark reviewed"/"return to
+// student" step, since the real state model is just
+// Submitted/Late/Graded.
 interface ProfessorGradesContextValue {
-  submissions: StudentSubmission[];
+  submissions: Submission[];
   loading: boolean;
-  getSubmission: (id: string) => StudentSubmission | undefined;
-  getSubmissionsForAssignment: (managedAssignmentId: string) => StudentSubmission[];
-  reviewSubmission: (id: string) => void;
-  setGrade: (id: string, grade: SubmissionGrade) => void;
-  setFeedback: (id: string, feedback: string) => void;
-  returnSubmission: (id: string) => void;
+  getSubmission: (id: string) => Submission | undefined;
+  getSubmissionsForAssignment: (assignmentId: string) => Submission[];
+  // `assignmentTitle` is optional context the caller already has on hand
+  // (see ProfessorSubmissionDetail.tsx) - used only to name the Grade
+  // Notification sent to the student; grading itself doesn't need it.
+  grade: (
+    id: string,
+    input: { score: number; maxScore: number; feedback: string },
+    assignmentTitle?: string
+  ) => Promise<void>;
+  refresh: () => void;
 }
 
 const ProfessorGradesContext = createContext<ProfessorGradesContextValue | undefined>(undefined);
 
 export function ProfessorGradesProvider({ children }: { children: ReactNode }) {
-  const [submissions, setSubmissions] = useState<StudentSubmission[]>([]);
+  const { user } = useAuth();
+  const { send } = useOwlery();
+  const [submissions, setSubmissions] = useState<Submission[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshToken, setRefreshToken] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
-    studentSubmissionsRepository.getAll().then((seeded) => {
+    setLoading(true);
+    submissionsRepository.getAll().then((loaded) => {
       if (!cancelled) {
-        setSubmissions(seeded);
+        setSubmissions(loaded);
         setLoading(false);
       }
     });
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [refreshToken]);
 
-  function getSubmission(id: string): StudentSubmission | undefined {
+  function getSubmission(id: string): Submission | undefined {
     return submissions.find((submission) => submission.id === id);
   }
 
-  function getSubmissionsForAssignment(managedAssignmentId: string): StudentSubmission[] {
-    return submissions.filter((submission) => submission.managedAssignmentId === managedAssignmentId);
+  function getSubmissionsForAssignment(assignmentId: string): Submission[] {
+    return submissions.filter((submission) => submission.assignmentId === assignmentId);
   }
 
-  function updateSubmission(id: string, updates: Partial<Omit<StudentSubmission, "id">>) {
-    setSubmissions((prev) =>
-      prev.map((submission) => (submission.id === id ? { ...submission, ...updates } : submission))
-    );
-  }
+  async function grade(
+    id: string,
+    input: { score: number; maxScore: number; feedback: string },
+    assignmentTitle?: string
+  ): Promise<void> {
+    if (!user) return;
+    const updated = await submissionsRepository.grade(id, { ...input, gradedBy: user.id });
+    setSubmissions((prev) => prev.map((submission) => (submission.id === id ? updated : submission)));
 
-  function reviewSubmission(id: string) {
-    updateSubmission(id, { status: "Reviewed" });
-  }
-
-  function setGrade(id: string, grade: SubmissionGrade) {
-    updateSubmission(id, { grade });
-  }
-
-  function setFeedback(id: string, feedback: string) {
-    updateSubmission(id, { feedback });
-  }
-
-  function returnSubmission(id: string) {
-    updateSubmission(id, { status: "Returned" });
+    // Phase 5 - Owlery: a real Grade Notification now that grading is a
+    // genuine cross-account write, not local-only state.
+    const title = assignmentTitle ?? "your assignment";
+    await send({
+      receiverId: updated.studentUserId,
+      subject: `Grade Posted: ${title}`,
+      content: `Your submission for "${title}" has been graded: ${input.score}/${input.maxScore}.${
+        input.feedback ? ` Feedback: ${input.feedback}` : ""
+      }`,
+      messageType: "Grade Notification",
+      relatedService: "grades",
+      relatedId: updated.id,
+    });
   }
 
   return (
@@ -79,10 +92,8 @@ export function ProfessorGradesProvider({ children }: { children: ReactNode }) {
         loading,
         getSubmission,
         getSubmissionsForAssignment,
-        reviewSubmission,
-        setGrade,
-        setFeedback,
-        returnSubmission,
+        grade,
+        refresh: () => setRefreshToken((token) => token + 1),
       }}
     >
       {children}

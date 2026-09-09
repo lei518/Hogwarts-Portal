@@ -19,10 +19,10 @@ export function StudentSupportPage() {
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <ProfileSection title="Appointment Booking" icon={CalendarPlus}>
-          <p className="text-parchment-dim text-sm">Booking an appointment isn't available yet.</p>
+          <p className="text-parchment-dim text-sm">Schedule a time with a member of the support team.</p>
         </ProfileSection>
         <ProfileSection title="Case Requests" icon={FileQuestion}>
-          <p className="text-parchment-dim text-sm">Submitting a case request isn't available yet.</p>
+          <p className="text-parchment-dim text-sm">Submit a request for support, in writing.</p>
         </ProfileSection>
       </div>
     </div>

@@ -13,10 +13,10 @@ export function QuickAccessWidget() {
           <Link
             key={path}
             to={path}
-            className="group flex items-center gap-4 border border-parchment-dim/20 rounded-sm px-5 py-4 hover:border-gold transition-colors duration-150"
+            className="group flex items-center gap-4 bg-void/30 border border-parchment-dim/15 rounded-lg px-5 py-4 transition-all duration-150 hover:border-gold/40 hover:bg-surface hover:-translate-y-0.5"
           >
-            <span className="text-gold-bright group-hover:text-gold-bright shrink-0">
-              <Icon size={22} />
+            <span className="flex items-center justify-center w-9 h-9 rounded-md bg-gold/10 text-gold-bright shrink-0">
+              <Icon size={18} />
             </span>
             <div className="min-w-0">
               <p className="font-display text-lg text-parchment">{label}</p>

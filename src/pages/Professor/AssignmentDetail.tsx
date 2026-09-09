@@ -1,11 +1,15 @@
 import { useParams, Link } from "react-router-dom";
-import { Percent, Users2 } from "lucide-react";
+import { Users2, ArrowLeft, NotebookPen } from "lucide-react";
 import { useProfessorAssignments } from "../../context/ProfessorAssignmentsContext";
+import { useProfessorGrades } from "../../context/ProfessorGradesContext";
 import { useProfessorScope } from "../../utils/professorScope";
 import { getCourse } from "../../data/courses";
 import { Button } from "../../components/ui/Button";
+import { Card } from "../../components/ui/Card";
+import { EmptyState } from "../../components/ui/EmptyState";
 import { ProfileField, ProfileSection } from "../../components/character/ProfileSection";
 import { ManagedAssignmentStatusBadge } from "../../components/professor/ManagedAssignmentStatusBadge";
+import { SubmissionStatusBadge } from "../../components/professor/SubmissionStatusBadge";
 import { LoadingState } from "../../components/ui/LoadingState";
 
 function formatDueDate(iso: string): string {
@@ -29,7 +33,8 @@ function formatDueDate(iso: string): string {
 export function AssignmentDetailPage() {
   const { id } = useParams<{ id: string }>();
   const { setStatus } = useProfessorAssignments();
-  const { teachingCoursesById, rosterByTeachingCourseId, assignments, loading } = useProfessorScope();
+  const { getSubmissionsForAssignment } = useProfessorGrades();
+  const { teachingCoursesById, rosterByTeachingCourseId, studentsById, assignments, loading } = useProfessorScope();
 
   const assignment = id ? assignments.find((a) => a.id === id) : undefined;
 
@@ -43,11 +48,16 @@ export function AssignmentDetailPage() {
 
   if (!assignment) {
     return (
-      <div className="px-4 md:px-8 py-6 md:py-8 max-w-3xl mx-auto text-center">
-        <h1 className="text-2xl font-display text-gold-bright mb-2">Assignment Not Found</h1>
-        <Link to="/professor/assignments" className="text-gold hover:text-gold-bright text-sm">
-          &larr; Back to Assignment Management
-        </Link>
+      <div className="px-4 md:px-8 py-6 md:py-8 max-w-3xl mx-auto">
+        <EmptyState
+          message="Assignment not found."
+          icon={NotebookPen}
+          action={
+            <Link to="/professor/assignments" className="text-gold hover:text-gold-bright text-sm">
+              &larr; Back to Assignment Management
+            </Link>
+          }
+        />
       </div>
     );
   }
@@ -55,14 +65,16 @@ export function AssignmentDetailPage() {
   const teachingCourse = teachingCoursesById.get(assignment.teachingCourseId);
   const course = teachingCourse ? getCourse(teachingCourse.courseId) : undefined;
   const roster = teachingCourse ? rosterByTeachingCourseId.get(teachingCourse.id) ?? [] : [];
+  const submissions = getSubmissionsForAssignment(assignment.id);
 
   return (
     <div className="px-4 md:px-8 py-6 md:py-8 max-w-3xl mx-auto flex flex-col gap-5">
-      <Link to="/professor/assignments" className="text-gold hover:text-gold-bright text-xs">
-        &larr; Back to Assignment Management
+      <Link to="/professor/assignments" className="flex items-center gap-1.5 text-gold hover:text-gold-bright text-xs w-fit">
+        <ArrowLeft size={14} />
+        Back to Assignment Management
       </Link>
 
-      <section className="border border-parchment-dim/20 rounded-sm px-6 py-6">
+      <Card as="section" className="px-6 py-6">
         <div className="flex items-start justify-between gap-3 mb-3">
           <h1 className="text-2xl md:text-3xl font-display text-gold-bright">{assignment.title}</h1>
           <ManagedAssignmentStatusBadge status={assignment.status} />
@@ -84,7 +96,7 @@ export function AssignmentDetailPage() {
         <div className="flex flex-wrap gap-3">
           <Link
             to={`/professor/assignments/${assignment.id}/edit`}
-            className="px-8 py-3 font-body text-sm tracking-wide rounded-sm border bg-transparent text-parchment border-parchment-dim/50 hover:border-gold hover:text-gold transition-colors duration-200"
+            className="inline-flex items-center px-6 py-2.5 font-body font-medium text-sm tracking-wide rounded-md border bg-transparent text-parchment border-parchment-dim/40 hover:border-gold hover:text-gold-bright hover:-translate-y-px transition-all duration-200"
           >
             Edit
           </Link>
@@ -102,7 +114,7 @@ export function AssignmentDetailPage() {
             </Button>
           )}
         </div>
-      </section>
+      </Card>
 
       {roster.length > 0 && (
         <ProfileSection title="Enrolled Students" icon={Users2}>
@@ -113,21 +125,33 @@ export function AssignmentDetailPage() {
         </ProfileSection>
       )}
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <ProfileSection title="Grade Submission" icon={Percent}>
-          <p className="text-parchment-dim text-sm">
-            Entering grades for this assignment will be available here once Grade Management is built in
-            Phase 3C.
-          </p>
-        </ProfileSection>
-
-        <ProfileSection title="Student Submission Review" icon={Users2}>
-          <p className="text-parchment-dim text-sm">
-            Reviewing what each student actually submitted will appear here once submissions are connected to
-            the Professor Portal.
-          </p>
-        </ProfileSection>
-      </div>
+      <ProfileSection title="Student Submissions" icon={Users2}>
+        {submissions.length === 0 ? (
+          <p className="text-parchment-dim text-sm">No submissions yet.</p>
+        ) : (
+          <div className="flex flex-col gap-2">
+            {submissions.map((submission) => (
+              <Link
+                key={submission.id}
+                to={`/professor/grades/${submission.id}`}
+                className="flex items-center justify-between gap-3 text-sm hover:text-gold-bright transition-colors border-b border-parchment-dim/10 pb-2 last:border-0 last:pb-0"
+              >
+                <span className="text-parchment truncate">
+                  {studentsById.get(submission.studentUserId)?.studentName ?? "Unknown Student"}
+                </span>
+                <span className="flex items-center gap-2 shrink-0">
+                  {submission.status === "Graded" && (
+                    <span className="text-parchment-dim text-xs">
+                      {submission.score}/{submission.maxScore}
+                    </span>
+                  )}
+                  <SubmissionStatusBadge status={submission.status} />
+                </span>
+              </Link>
+            ))}
+          </div>
+        )}
+      </ProfileSection>
     </div>
   );
 }

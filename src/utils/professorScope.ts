@@ -2,12 +2,11 @@ import { useEffect, useMemo, useState } from "react";
 import type {
   ManagedAssignment,
   OfficeHour,
-  ProfessorAnnouncement,
   ProfessorProfile,
   StudentRosterEntry,
-  StudentSubmission,
   TeachingCourse,
 } from "../types/professorPortal";
+import type { Submission } from "../types/academics";
 import { useAuthenticatedProfessor } from "../context/AuthenticatedProfessorContext";
 import { useProfessorAssignments } from "../context/ProfessorAssignmentsContext";
 import { useProfessorGrades } from "../context/ProfessorGradesContext";
@@ -19,10 +18,13 @@ export interface ProfessorScope {
   teachingCourses: TeachingCourse[];
   teachingCoursesById: Map<string, TeachingCourse>;
   rosterByTeachingCourseId: Map<string, StudentRosterEntry[]>;
+  // Phase 2 - every enrolled student across this professor's teaching
+  // courses, keyed by their real Supabase user id - resolves a Submission's
+  // studentUserId to a display name/house/year without a second lookup.
+  studentsById: Map<string, StudentRosterEntry>;
   officeHours: OfficeHour[];
-  announcements: ProfessorAnnouncement[];
   assignments: ManagedAssignment[];
-  submissions: StudentSubmission[];
+  submissions: Submission[];
   loading: boolean;
   refresh: () => void;
 }
@@ -36,10 +38,13 @@ export interface ProfessorScope {
 // comes from ProfessorAssignmentsContext/ProfessorGradesContext exactly as
 // before (see their own comments - unchanged), and this hook's only job is
 // to (a) fetch the authenticated professor's own teaching
-// courses/roster/office hours/announcements, and (b) filter the *existing*
+// courses/roster/office hours, and (b) filter the *existing*
 // assignments/submissions down to the ones taught in one of those
 // teaching courses. No new source of truth is introduced - everything
-// here is either a repository read or a derived filter.
+// here is either a repository read or a derived filter. Announcements
+// (Phase 6) are no longer fetched here - Professor pages read
+// useAcademicData().announcements directly, filtered by authorUserId,
+// the same global source every other role reads from.
 export function useProfessorScope(): ProfessorScope {
   const { professorId, profile, loading: identityLoading, refresh: refreshIdentity } = useAuthenticatedProfessor();
   const { assignments: allAssignments, loading: assignmentsLoading } = useProfessorAssignments();
@@ -50,7 +55,6 @@ export function useProfessorScope(): ProfessorScope {
     new Map()
   );
   const [officeHours, setOfficeHours] = useState<OfficeHour[]>([]);
-  const [announcements, setAnnouncements] = useState<ProfessorAnnouncement[]>([]);
   const [scopeLoading, setScopeLoading] = useState(true);
   const [refreshToken, setRefreshToken] = useState(0);
 
@@ -61,7 +65,6 @@ export function useProfessorScope(): ProfessorScope {
       setTeachingCourses([]);
       setRosterByTeachingCourseId(new Map());
       setOfficeHours([]);
-      setAnnouncements([]);
       setScopeLoading(false);
       return;
     }
@@ -70,10 +73,9 @@ export function useProfessorScope(): ProfessorScope {
     setScopeLoading(true);
 
     async function loadScope() {
-      const [courses, hours, notices] = await Promise.all([
+      const [courses, hours] = await Promise.all([
         professorPortalRepository.getTeachingCoursesForProfessor(professorId!),
         professorPortalRepository.getOfficeHoursForProfessor(professorId!),
-        professorPortalRepository.getAnnouncementsForProfessor(professorId!),
       ]);
       if (cancelled) return;
 
@@ -84,7 +86,6 @@ export function useProfessorScope(): ProfessorScope {
 
       setTeachingCourses(courses);
       setOfficeHours(hours);
-      setAnnouncements(notices);
       setRosterByTeachingCourseId(new Map(courses.map((course, index) => [course.id, rosterEntries[index]])));
       setScopeLoading(false);
     }
@@ -97,6 +98,14 @@ export function useProfessorScope(): ProfessorScope {
 
   const teachingCoursesById = useMemo(() => new Map(teachingCourses.map((c) => [c.id, c])), [teachingCourses]);
 
+  const studentsById = useMemo(() => {
+    const map = new Map<string, StudentRosterEntry>();
+    for (const roster of rosterByTeachingCourseId.values()) {
+      for (const entry of roster) map.set(entry.studentUserId, entry);
+    }
+    return map;
+  }, [rosterByTeachingCourseId]);
+
   const assignments = useMemo(
     () => allAssignments.filter((assignment) => teachingCoursesById.has(assignment.teachingCourseId)),
     [allAssignments, teachingCoursesById]
@@ -105,7 +114,7 @@ export function useProfessorScope(): ProfessorScope {
   const assignmentIds = useMemo(() => new Set(assignments.map((assignment) => assignment.id)), [assignments]);
 
   const submissions = useMemo(
-    () => allSubmissions.filter((submission) => assignmentIds.has(submission.managedAssignmentId)),
+    () => allSubmissions.filter((submission) => assignmentIds.has(submission.assignmentId)),
     [allSubmissions, assignmentIds]
   );
 
@@ -115,8 +124,8 @@ export function useProfessorScope(): ProfessorScope {
     teachingCourses,
     teachingCoursesById,
     rosterByTeachingCourseId,
+    studentsById,
     officeHours,
-    announcements,
     assignments,
     submissions,
     loading: identityLoading || scopeLoading || assignmentsLoading || gradesLoading,

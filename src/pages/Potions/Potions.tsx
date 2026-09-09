@@ -1,138 +1,73 @@
-import { useState } from "react";
-import { Lock } from "lucide-react";
-import { useGame } from "../../context/GameContext";
+import { useMemo, useState } from "react";
+import { Link } from "react-router-dom";
+import { Search, FlaskConical } from "lucide-react";
 import { potions } from "../../data/potions";
-import { scaleIngredients } from "../../utils/potionCalculator";
-import { Book } from "../../components/ui/Book";
-import { Button } from "../../components/ui/Button";
-import { ProgressBar } from "../../components/ui/ProgressBar";
-import { BrewingGame } from "../../components/potions/BrewingGame";
+import { useGame } from "../../context/GameContext";
+import { Card } from "../../components/ui/Card";
+import { Badge } from "../../components/ui/Badge";
+import { PageHeader } from "../../components/ui/PageHeader";
+import { EmptyState } from "../../components/ui/EmptyState";
 
+// Phase 4 - Potion Archive: a searchable laboratory reference, not a
+// brewing minigame. No quiz score, difficulty rating, or unlock
+// requirement - every potion is browsable regardless of year;
+// `requiredYear` is shown as informational curriculum metadata only.
 export function PotionsPage() {
   const { state } = useGame();
-  const [pageIndex, setPageIndex] = useState(0);
-  const [quantity, setQuantity] = useState(1);
-  const [brewing, setBrewing] = useState(false);
+  const [search, setSearch] = useState("");
 
-  if (!state.character) return null;
-  const character = state.character;
+  const filtered = useMemo(() => {
+    if (!search.trim()) return potions;
+    const query = search.trim().toLowerCase();
+    return potions.filter((potion) => potion.name.toLowerCase().includes(query));
+  }, [search]);
 
-  const potion = potions[pageIndex];
-  const scaled = scaleIngredients(potion, quantity);
-  const progress = character.potionProgress[potion.id];
-  const locked = potion.requiredYear > character.year;
-
-  function goToPage(index: number) {
-    setPageIndex(index);
-    setQuantity(1);
-  }
+  const studiedIds = new Set(
+    Object.values(state.character?.potionProgress ?? {})
+      .filter((p) => p.studied)
+      .map((p) => p.potionId)
+  );
 
   return (
-    <div className="px-4 md:px-8 py-6 md:py-8 max-w-4xl mx-auto">
-      <h1 className="text-2xl md:text-3xl font-display text-gold-bright mb-6">🧪 Potions</h1>
-
-      <Book
-        transitionKey={potion.id}
-        pageLabel={`Page ${pageIndex + 1} of ${potions.length}`}
-        canPrev={pageIndex > 0}
-        canNext={pageIndex < potions.length - 1}
-        onPrev={() => goToPage(Math.max(0, pageIndex - 1))}
-        onNext={() => goToPage(Math.min(potions.length - 1, pageIndex + 1))}
-        left={
-          <>
-            <p className="text-xs uppercase tracking-wide text-parchment-dim mb-2">Potion</p>
-            <h2 className="font-display text-3xl text-gold-bright mb-2">{potion.name}</h2>
-            <p className="text-parchment-dim text-sm leading-relaxed mb-6">{potion.effects}</p>
-
-            <div className="mt-auto flex flex-col gap-2 text-sm">
-              <Row
-                label="Difficulty"
-                value={"★".repeat(potion.difficulty) + "☆".repeat(5 - potion.difficulty)}
-              />
-              <Row
-                label="Brew Time"
-                value={`${potion.brewTimeDays} day${potion.brewTimeDays !== 1 ? "s" : ""}`}
-              />
-              <Row label="Required Year" value={String(potion.requiredYear)} />
-            </div>
-          </>
-        }
-        right={
-          locked ? (
-            <div className="flex-1 flex flex-col items-center justify-center text-center gap-3">
-              <Lock size={28} className="text-parchment-dim" />
-              <p className="text-parchment-dim text-sm">
-                You'll need to reach Year {potion.requiredYear} to brew this.
-              </p>
-            </div>
-          ) : (
-            <>
-              {progress && (
-                <div className="mb-4">
-                  <ProgressBar
-                    value={progress.mastery}
-                    label={`Potion Mastery · Brewed ${progress.timesBrewed}×`}
-                  />
-                </div>
-              )}
-
-              <div className="mb-4">
-                <label className="block text-xs uppercase tracking-wide text-parchment-dim mb-1.5">
-                  Number of potions
-                </label>
-                <input
-                  type="number"
-                  min={1}
-                  max={20}
-                  value={quantity}
-                  onChange={(e) => setQuantity(Math.max(1, Number(e.target.value) || 1))}
-                  className="w-24 bg-void/50 border border-parchment-dim/30 rounded-sm px-3 py-2 text-parchment"
-                />
-              </div>
-
-              <p className="text-xs uppercase tracking-wide text-parchment-dim mb-2">
-                Ingredients
-              </p>
-              <ul className="mb-4 flex flex-col gap-1">
-                {scaled.map((ing) => (
-                  <li key={ing.name} className="flex justify-between text-sm text-parchment">
-                    <span>{ing.name}</span>
-                    <span className="text-parchment-dim">{ing.amount}</span>
-                  </li>
-                ))}
-              </ul>
-
-              <p className="text-xs uppercase tracking-wide text-parchment-dim mb-2">
-                Instructions
-              </p>
-              <ol className="mb-6 flex flex-col gap-1.5 list-decimal list-inside">
-                {potion.instructions.map((step, i) => (
-                  <li key={i} className="text-parchment-dim text-sm leading-relaxed">
-                    {step}
-                  </li>
-                ))}
-              </ol>
-
-              <div className="mt-auto">
-                <Button onClick={() => setBrewing(true)} className="w-full">
-                  Brew
-                </Button>
-              </div>
-            </>
-          )
-        }
+    <div className="px-4 md:px-8 py-6 md:py-8 max-w-5xl mx-auto">
+      <PageHeader
+        title="Potion Archive"
+        description="Search and study the potions brewed at Hogwarts."
+        icon={FlaskConical}
       />
 
-      {brewing && <BrewingGame potion={potion} onClose={() => setBrewing(false)} />}
-    </div>
-  );
-}
+      <div className="relative my-6">
+        <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-parchment-dim/60" />
+        <input
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Search potions..."
+          aria-label="Search potions"
+          className="w-full bg-void/50 border border-parchment-dim/30 rounded-md pl-10 pr-4 py-2.5 text-parchment placeholder:text-parchment-dim/50 focus:border-gold outline-none"
+        />
+      </div>
 
-function Row({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="flex justify-between border-b border-parchment-dim/10 pb-2">
-      <span className="text-parchment-dim">{label}</span>
-      <span className="text-parchment">{value}</span>
+      <p className="text-parchment-dim text-sm mb-4">
+        {filtered.length} potion{filtered.length !== 1 ? "s" : ""}
+      </p>
+
+      {filtered.length === 0 ? (
+        <EmptyState icon={Search} message="No potions match your search." />
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+          {filtered.map((potion) => (
+            <Link key={potion.id} to={`/potions/${potion.id}`}>
+              <Card interactive className="px-5 py-4 h-full flex flex-col">
+                <div className="flex items-start justify-between gap-2 mb-2">
+                  <p className="font-display text-lg text-parchment">{potion.name}</p>
+                  {studiedIds.has(potion.id) && <Badge tone="emerald">Studied</Badge>}
+                </div>
+                <p className="text-parchment-dim text-sm">{potion.description}</p>
+              </Card>
+            </Link>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

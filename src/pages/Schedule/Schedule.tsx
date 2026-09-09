@@ -1,8 +1,12 @@
 import { Link } from "react-router-dom";
+import { CalendarDays } from "lucide-react";
 import { useGame } from "../../context/GameContext";
 import { getScheduleForYear } from "../../data/schedules";
 import { getCourse } from "../../data/courses";
 import type { DayOfWeek } from "../../types/academics";
+import { PageHeader } from "../../components/ui/PageHeader";
+import { Card } from "../../components/ui/Card";
+import { EmptyState } from "../../components/ui/EmptyState";
 
 const DAYS: DayOfWeek[] = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
 
@@ -15,22 +19,26 @@ export function SchedulePage() {
   const entries = getScheduleForYear(character.year);
 
   return (
-    <div className="px-4 md:px-8 py-6 md:py-8 max-w-5xl mx-auto">
-      <h1 className="text-2xl md:text-3xl font-display text-gold-bright mb-2">🗓️ Class Schedule</h1>
-      <p className="text-parchment-dim text-sm mb-8">Your weekly timetable for Year {character.year}.</p>
+    <div className="px-4 md:px-8 py-6 md:py-8 max-w-5xl mx-auto flex flex-col gap-8">
+      <PageHeader
+        title="Class Schedule"
+        description={`Your weekly timetable for Year ${character.year}.`}
+        icon={CalendarDays}
+      />
 
       {entries.length === 0 ? (
-        <p className="text-parchment-dim text-sm border border-parchment-dim/15 rounded-sm px-5 py-8 text-center">
-          The Year {character.year} timetable hasn't been published yet. Check back once it's assigned.
-        </p>
+        <EmptyState
+          icon={CalendarDays}
+          message={`The Year ${character.year} timetable hasn't been published yet. Check back once it's assigned.`}
+        />
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
           {DAYS.map((day) => {
             const dayEntries = entries
               .filter((e) => e.day === day)
               .sort((a, b) => a.startTime.localeCompare(b.startTime));
             return (
-              <div key={day} className="border border-parchment-dim/20 rounded-sm px-4 py-3">
+              <Card key={day} className="px-4 py-4">
                 <p className="text-parchment-dim text-xs uppercase tracking-[0.2em] mb-3">{day}</p>
                 {dayEntries.length === 0 ? (
                   <p className="text-parchment-dim text-xs">No classes</p>
@@ -58,7 +66,7 @@ export function SchedulePage() {
                     })}
                   </div>
                 )}
-              </div>
+              </Card>
             );
           })}
         </div>

@@ -6,6 +6,9 @@ import { getAveragePercentage } from "../../utils/professorGrades";
 import { ProfileSection } from "../../components/character/ProfileSection";
 import { ManagedAssignmentStatusBadge } from "../../components/professor/ManagedAssignmentStatusBadge";
 import { LoadingState } from "../../components/ui/LoadingState";
+import { PageHeader } from "../../components/ui/PageHeader";
+import { EmptyState } from "../../components/ui/EmptyState";
+import { Card } from "../../components/ui/Card";
 
 function formatDueDate(iso: string): string {
   return new Date(`${iso}T00:00:00`).toLocaleDateString(undefined, { month: "short", day: "numeric" });
@@ -34,15 +37,10 @@ export function MyCoursesPage() {
 
   return (
     <div className="px-4 md:px-8 py-6 md:py-8 max-w-4xl mx-auto flex flex-col gap-5">
-      <div>
-        <h1 className="text-2xl md:text-3xl font-display text-gold-bright mb-2">📖 My Courses</h1>
-        <p className="text-parchment-dim text-sm">The sections you teach this year.</p>
-      </div>
+      <PageHeader title="My Courses" description="The sections you teach this year." icon={BookOpen} />
 
       {teachingCourses.length === 0 ? (
-        <p className="text-parchment-dim text-sm border border-parchment-dim/15 rounded-sm px-5 py-8 text-center">
-          No courses on file for your account yet.
-        </p>
+        <EmptyState message="No courses on file for your account yet." icon={BookOpen} />
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           {teachingCourses.map((teachingCourse) => {
@@ -52,13 +50,13 @@ export function MyCoursesPage() {
             const draftCount = courseAssignments.filter((a) => a.status === "Draft").length;
             const publishedCount = courseAssignments.filter((a) => a.status === "Published").length;
             const assignmentIds = new Set(courseAssignments.map((a) => a.id));
-            const courseSubmissions = submissions.filter((s) => assignmentIds.has(s.managedAssignmentId));
-            const pendingReviews = courseSubmissions.filter((s) => s.status === "Pending").length;
-            const reviewedCount = courseSubmissions.filter((s) => s.status !== "Pending").length;
+            const courseSubmissions = submissions.filter((s) => assignmentIds.has(s.assignmentId));
+            const pendingReviews = courseSubmissions.filter((s) => s.status !== "Graded").length;
+            const gradedCount = courseSubmissions.filter((s) => s.status === "Graded").length;
             const averagePercentage = getAveragePercentage(courseSubmissions);
 
             return (
-              <div key={teachingCourse.id} className="border border-parchment-dim/20 rounded-sm px-5 py-4">
+              <Card key={teachingCourse.id} className="px-5 py-4">
                 <p className="font-display text-lg text-parchment mb-1">{course?.name ?? teachingCourse.courseId}</p>
                 <p className="text-parchment-dim text-xs mb-3">{teachingCourse.section}</p>
                 <div className="flex flex-col gap-1.5 text-sm text-parchment-dim mb-4">
@@ -98,12 +96,12 @@ export function MyCoursesPage() {
                 <div className="border-t border-parchment-dim/10 pt-3 mt-3">
                   <p className="text-parchment-dim text-[11px] uppercase tracking-wide mb-1">Grading</p>
                   <p className="text-parchment-dim text-sm">
-                    {pendingReviews} pending review{pendingReviews === 1 ? "" : "s"} &middot; {reviewedCount}{" "}
-                    reviewed &middot; Average{" "}
+                    {pendingReviews} pending review{pendingReviews === 1 ? "" : "s"} &middot; {gradedCount}{" "}
+                    graded &middot; Average{" "}
                     {averagePercentage === null ? "not yet available" : `${averagePercentage}%`}
                   </p>
                 </div>
-              </div>
+              </Card>
             );
           })}
         </div>

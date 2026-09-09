@@ -1,19 +1,18 @@
-// Grades & Academic Records - standalone module (see CLAUDE.md). Kept as
-// independent interfaces on purpose, per this milestone's instruction not
-// to nest everything into one huge object - each is a distinct future
-// integration point (Professor Portal grades GradeRecord; a Dashboard
-// widget previews AcademicStanding; etc.) and should be extendable alone.
+// Grades & Academic Records. Phase 2 collapsed five pages
+// (Courses/Grades/Academic Progress/Semester Summary/Academic Standing/
+// Transcript) into two: Grades (the working record) and Transcript (the
+// official one) - see CLAUDE.md's Academics section and the Phase 2 plan.
 
 export type GradeStatus = "In Progress" | "Completed" | "Incomplete";
 
-// The canonical grade for one course. Seeded today because no professor
-// can submit a real grade yet ("Do not fabricate dynamic grading logic") -
-// see data/grades.ts. When a Professor Portal exists, this is the shape it
-// writes into; nothing here needs to change, only where it comes from.
+// A course's current grade - computed, not stored (see
+// utils/grades.ts's getCourseGrade): the average of a student's graded
+// assignment_submissions for that course's assignments. "Incomplete" when
+// nothing has been graded yet, never a fabricated grade.
 export interface GradeRecord {
   id: string;
   courseId: string;
-  currentGrade: string; // letter grade, e.g. "A-"
+  currentGrade: string; // letter grade, e.g. "A-", or "Incomplete"
   percentage?: number; // 0-100, optional finer-grained score behind the letter
   status: GradeStatus;
   remarks: string;
@@ -25,30 +24,28 @@ export interface TranscriptEntry {
   credits: string; // placeholder display value - no credit system exists yet
 }
 
-export interface TranscriptRecord {
-  academicYear: string;
-  semester: string;
+// Grouped by academic year (Course.requiredYear), oldest first - the
+// Transcript's own "academic history" structure.
+export interface TranscriptYearGroup {
+  year: number;
   entries: TranscriptEntry[];
+}
+
+export interface TranscriptRecord {
+  yearGroups: TranscriptYearGroup[];
   gpa: string; // placeholder display value - no GPA scale exists yet
 }
 
 export type AcademicStandingLevel = "Good Standing" | "Honor Roll" | "Probation" | "Not Yet Determined";
 
-export interface AcademicStanding {
+// Grades' own header summary - what Academic Progress/Academic Standing/
+// Semester Summary used to show as three separate pages, per Phase 2's
+// consolidation.
+export interface AcademicSummary {
   standing: AcademicStandingLevel;
-  gpa: string; // placeholder
-  creditsEarned: string; // placeholder
+  currentSemester: string;
   coursesCompleted: number;
   coursesInProgress: number;
   assignmentsSubmitted: number;
   housePointsEarnedThroughAcademics: number;
-}
-
-export interface SemesterSummary {
-  semester: string;
-  coursesTaken: number;
-  assignmentsCompleted: number;
-  averageGrade: string;
-  standing: AcademicStandingLevel;
-  professorFeedback: string; // placeholder - no Professor Portal yet
 }

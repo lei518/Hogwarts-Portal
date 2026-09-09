@@ -1,4 +1,5 @@
-import { Ticket, Send } from "lucide-react";
+import { useEffect, useState, type FormEvent } from "react";
+import { Ticket } from "lucide-react";
 import {
   hogsmeadeServicesService,
   eligibility,
@@ -6,13 +7,73 @@ import {
   authorizedVisitDays,
   approvedShops,
 } from "../../data/hogsmeadeServices";
+import { permitsRepository } from "../../repositories/permitsRepository";
+import { useAuth } from "../../context/AuthContext";
+import { useAssignedStaffName } from "../../utils/serviceAssignments";
+import type { PermitRow, PermitStatus } from "../../services/supabase";
 import { ServiceHeader } from "../../components/studentServices/ServiceHeader";
 import { ProfileSection } from "../../components/character/ProfileSection";
+import { Card } from "../../components/ui/Card";
+import { Button } from "../../components/ui/Button";
+import { FormField } from "../../components/ui/FormField";
+import { Input } from "../../components/ui/Input";
+import { LoadingState } from "../../components/ui/LoadingState";
 
+const PERMIT_STATUS_COLORS: Record<PermitStatus, string> = {
+  Pending: "#c9a646",
+  Approved: "#6b9e6b",
+  Rejected: "#c77b7b",
+};
+
+function formatDate(iso: string): string {
+  return new Date(iso).toLocaleDateString(undefined, { month: "short", day: "numeric" });
+}
+
+// Phase 5 - Campus Services. Replaces the reserved "Visit Permit" card
+// with a real request -> Deputy Headmaster-review workflow backed by the
+// live `permits` table.
 export function HogsmeadeServicesPage() {
+  const { user } = useAuth();
+  const { name: managedByName } = useAssignedStaffName("Hogsmeade Permits");
+  const [permits, setPermits] = useState<PermitRow[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [visitDate, setVisitDate] = useState("");
+  const [reason, setReason] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  function loadPermits() {
+    if (!user) return;
+    setLoading(true);
+    permitsRepository.getAll().then((all) => {
+      setPermits(all.filter((p) => p.studentId === user.id));
+      setLoading(false);
+    });
+  }
+
+  useEffect(loadPermits, [user]);
+
+  async function handleSubmit(event: FormEvent) {
+    event.preventDefault();
+    if (!user || !visitDate || !reason.trim()) return;
+    setSubmitting(true);
+    setError(null);
+    try {
+      await permitsRepository.create({ studentId: user.id, visitDate, reason: reason.trim() });
+      setVisitDate("");
+      setReason("");
+      loadPermits();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not submit this request.");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
   return (
     <div className="px-4 md:px-8 py-6 md:py-8 max-w-3xl mx-auto flex flex-col gap-5">
       <ServiceHeader service={hogsmeadeServicesService} />
+      <p className="text-parchment-dim text-xs -mt-3">Managed by: {managedByName}</p>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <ProfileSection title="Student Eligibility">
@@ -43,25 +104,63 @@ export function HogsmeadeServicesPage() {
       <ProfileSection title="Approved Shops">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           {approvedShops.map((shop) => (
-            <div key={shop.id} className="border border-parchment-dim/15 rounded-sm px-4 py-3">
+            <Card key={shop.id} className="px-4 py-3">
               <div className="flex items-center justify-between gap-2 mb-1">
                 <p className="text-parchment text-sm font-display">{shop.name}</p>
                 <span className="text-[10px] uppercase tracking-wide text-parchment-dim">{shop.category}</span>
               </div>
               <p className="text-parchment-dim text-xs">{shop.description}</p>
-            </div>
+            </Card>
           ))}
         </div>
       </ProfileSection>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <ProfileSection title="Visit Permit" icon={Ticket}>
-          <p className="text-parchment-dim text-sm">Requesting a visit permit isn't available yet.</p>
-        </ProfileSection>
-        <ProfileSection title="Online Requests" icon={Send}>
-          <p className="text-parchment-dim text-sm">Submitting an online request isn't available yet.</p>
-        </ProfileSection>
-      </div>
+      <ProfileSection title="Visit Permit" icon={Ticket}>
+        {loading ? (
+          <LoadingState label="Loading your permits…" />
+        ) : permits.length === 0 ? (
+          <p className="text-parchment-dim text-sm mb-4">You haven't requested a visit permit yet.</p>
+        ) : (
+          <div className="flex flex-col gap-2 mb-4">
+            {permits.map((permit) => {
+              const color = PERMIT_STATUS_COLORS[permit.status];
+              return (
+                <div key={permit.id} className="flex items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="text-parchment text-sm truncate">{permit.reason}</p>
+                    <p className="text-parchment-dim text-xs">Visit date: {formatDate(permit.visitDate)}</p>
+                  </div>
+                  <span
+                    className="text-[10px] uppercase tracking-wide px-2 py-0.5 rounded-full border shrink-0"
+                    style={{ color, borderColor: `${color}66`, background: `${color}15` }}
+                  >
+                    {permit.status}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        <form onSubmit={handleSubmit} className="flex flex-col gap-3">
+          <FormField label="Visit Date" htmlFor="hogsmeade-date">
+            <Input
+              id="hogsmeade-date"
+              type="date"
+              value={visitDate}
+              onChange={(e) => setVisitDate(e.target.value)}
+              required
+            />
+          </FormField>
+          <FormField label="Reason" htmlFor="hogsmeade-reason">
+            <Input id="hogsmeade-reason" value={reason} onChange={(e) => setReason(e.target.value)} required />
+          </FormField>
+          {error && <p className="text-ember text-sm">{error}</p>}
+          <Button type="submit" size="sm" disabled={submitting} className="self-start">
+            {submitting ? "Submitting…" : "Request Permit"}
+          </Button>
+        </form>
+      </ProfileSection>
     </div>
   );
 }

@@ -8,19 +8,16 @@ import {
   type Dispatch,
   type ReactNode,
 } from "react";
-import type { GameSettings, GameState, House, InventoryItem } from "../types/game";
+import type { GameSettings, GameState, House } from "../types/game";
 import { DEFAULT_SETTINGS } from "../types/game";
 import type { Character } from "../types/character";
-import type { OwlPostCategory, OwlPostMessage } from "../types/owlPost";
 import type { HousePointAward, PersonalNote, Reminder } from "../types/campusLife";
-import type { AssignmentSubmission } from "../types/academics";
 import { loadGameState, saveGameState, clearGameState } from "../utils/storage";
-import { awardXp, clamp } from "../utils/xpSystem";
+import { clamp } from "../utils/xpSystem";
 import { getUnlockedAchievementIds } from "../data/achievements";
-import { owlPostSeeds } from "../data/owlPostSeeds";
-import { getAssignment } from "../data/assignments";
 import { useAuth } from "./AuthContext";
 import { fetchCloudSave, upsertCloudSave } from "../services/supabase";
+import { createInitialCharacter, splitFullName } from "../utils/character";
 import { ConfirmDialog } from "../components/ui/ConfirmDialog";
 
 export type SyncStatus = "idle" | "saving" | "saved" | "offline";
@@ -31,41 +28,6 @@ const initialState: GameState = {
   character: null,
   settings: DEFAULT_SETTINGS,
 };
-
-// Phase 3D - Grade Management Bridge. The sole write path for a
-// Professor-reviewed grade to reach the Student Portal's own
-// AssignmentSubmission - dispatched only by bridges/GradeBridgeSync.tsx,
-// only after it has confirmed (by exact name match, its one and only
-// correspondence rule) that a StudentSubmission belongs to the signed-in
-// Character. This action does not know or care where `grade` came from.
-interface ApplyProfessorGradePayload {
-  assignmentId: string;
-  grade: number;
-}
-
-interface CastSpellPayload {
-  spellId: string;
-  manaCost: number;
-  xpAward: number;
-  masteryGain: number;
-  success: boolean;
-}
-
-interface BrewPotionPayload {
-  potionId: string;
-  potionName: string;
-  xpAward: number;
-  masteryGain: number;
-  yieldsPotion: boolean;
-  housePointsDelta: number;
-}
-
-interface UseItemPayload {
-  itemId: string;
-  healthDelta?: number;
-  energyDelta?: number;
-  knowledgeDelta?: number;
-}
 
 interface StudyBookPayload {
   bookId: string;
@@ -79,26 +41,12 @@ interface ChangeRelationshipPayload {
   delta: number;
 }
 
-// The single publish API for Owl Post - any feature (Academics, House Cup,
-// Student Planner, Announcements, ...) sends a message with this shape.
-// `id`/`timestamp` are optional because most callers don't need to name
-// them; the seeding effect below supplies a stable `id` so a seed is never
-// sent twice for the same character.
-interface SendOwlPostPayload {
-  id?: string;
-  category: OwlPostCategory;
-  sender: string;
-  subject: string;
-  body: string;
-  timestamp?: string;
-}
-
-// The single publish API for House Points, mirroring SEND_OWL_POST_MESSAGE -
-// any feature (Potions, an adventure, Quidditch, a professor, an assignment
-// grade, an automated system) awards or deducts points this same way, and
-// House Cup never needs to change to pick up a new source. `awardedBy` is
-// deliberately free text, not a closed union, so a future source can name
-// itself without a type change here.
+// The single publish API for House Points - any feature (Potions, an
+// adventure, Quidditch, a professor, an assignment grade, an automated
+// system) awards or deducts points this same way, and House Cup never
+// needs to change to pick up a new source. `awardedBy` is deliberately
+// free text, not a closed union, so a future source can name itself
+// without a type change here.
 interface AwardHousePointsPayload {
   id?: string;
   house: House;
@@ -112,11 +60,9 @@ interface AdventureRewardPayload {
   questId: string;
   questTitle: string;
   questDescription: string;
-  xp?: number;
   housePoints?: number;
   knowledge?: number;
   relationshipChanges?: { studentId: string; delta: number }[];
-  inventoryItem?: { name: string; category: InventoryItem["category"]; quantity: number };
   unlocksSpellId?: string;
   unlocksLocationId?: string;
 }
@@ -124,23 +70,18 @@ interface AdventureRewardPayload {
 type GameAction =
   | { type: "CREATE_CHARACTER"; payload: Character }
   | { type: "UPDATE_CHARACTER"; payload: Partial<Character> }
-  | { type: "COMPLETE_COMMON_ROOM_INTRO"; payload: { startingHousePoints: number } }
+  | { type: "COMPLETE_SORTING"; payload: { house: House; startingHousePoints: number } }
   | { type: "DISCOVER_LOCATION"; payload: string }
-  | { type: "CAST_SPELL"; payload: CastSpellPayload }
-  | { type: "BREW_POTION"; payload: BrewPotionPayload }
-  | { type: "USE_ITEM"; payload: UseItemPayload }
+  // Phase 4 - Spell/Potion Archive: no casting/brewing minigame - a
+  // student simply marks something studied, the same "I've read this"
+  // action TOGGLE_BOOKMARK already models for Library books.
+  | { type: "STUDY_SPELL"; payload: { spellId: string } }
+  | { type: "STUDY_POTION"; payload: { potionId: string } }
   | { type: "STUDY_BOOK"; payload: StudyBookPayload }
   | { type: "TOGGLE_BOOKMARK"; payload: string }
   | { type: "CHANGE_RELATIONSHIP"; payload: ChangeRelationshipPayload }
   | { type: "RESOLVE_ADVENTURE_ENDING"; payload: AdventureRewardPayload }
-  | { type: "VIEW_ACCEPTANCE_LETTER" }
-  | { type: "COMPLETE_TUTORIAL" }
-  | { type: "SEND_OWL_POST_MESSAGE"; payload: SendOwlPostPayload }
-  | { type: "MARK_OWL_POST_READ"; payload: string }
-  | { type: "MARK_ALL_OWL_POST_READ" }
   | { type: "AWARD_HOUSE_POINTS"; payload: AwardHousePointsPayload }
-  | { type: "SUBMIT_ASSIGNMENT"; payload: { assignmentId: string } }
-  | { type: "APPLY_PROFESSOR_GRADE"; payload: ApplyProfessorGradePayload }
   | { type: "ADD_PERSONAL_NOTE"; payload: string }
   | { type: "REMOVE_PERSONAL_NOTE"; payload: string }
   | { type: "ADD_REMINDER"; payload: { text: string; dueDate?: string } }
@@ -150,29 +91,6 @@ type GameAction =
   | { type: "UNLOCK_ACHIEVEMENTS"; payload: string[] }
   | { type: "LOAD_STATE"; payload: GameState }
   | { type: "RESET" };
-
-function addInventoryItem(
-  inventory: InventoryItem[],
-  name: string,
-  category: InventoryItem["category"],
-  quantity: number
-): InventoryItem[] {
-  const existing = inventory.find((item) => item.name === name && item.category === category);
-  if (existing) {
-    return inventory.map((item) =>
-      item.id === existing.id ? { ...item, quantity: item.quantity + quantity } : item
-    );
-  }
-  return [
-    ...inventory,
-    {
-      id: `${category.toLowerCase().replace(/\s+/g, "-")}-${name.toLowerCase().replace(/\s+/g, "-")}`,
-      name,
-      category,
-      quantity,
-    },
-  ];
-}
 
 // The one place house-points math + the award log happen - every case that
 // changes housePoints (below) goes through this instead of its own inline
@@ -197,22 +115,6 @@ function applyHousePointsAward(character: Character, payload: AwardHousePointsPa
   };
 }
 
-// The one place an OwlPostMessage gets constructed - SEND_OWL_POST_MESSAGE
-// uses this directly, and any reducer case that needs to send a message as
-// part of a larger state change (e.g. SUBMIT_ASSIGNMENT) reuses it instead
-// of building the object inline a second way.
-function buildOwlPostMessage(payload: SendOwlPostPayload): OwlPostMessage {
-  return {
-    id: payload.id ?? crypto.randomUUID(),
-    category: payload.category,
-    sender: payload.sender,
-    subject: payload.subject,
-    body: payload.body,
-    timestamp: payload.timestamp ?? new Date().toISOString(),
-    read: false,
-  };
-}
-
 function gameReducer(state: GameState, action: GameAction): GameState {
   switch (action.type) {
     case "CREATE_CHARACTER":
@@ -220,19 +122,18 @@ function gameReducer(state: GameState, action: GameAction): GameState {
     case "UPDATE_CHARACTER":
       if (!state.character) return state;
       return { ...state, character: { ...state.character, ...action.payload } };
-    case "COMPLETE_COMMON_ROOM_INTRO": {
+    // Year-Based Onboarding (Phase 6L) - the Sorting Hat's own completion:
+    // sets the house and the completed flag, and carries forward the
+    // welcome house-points bonus that used to live in the (now removed)
+    // Common Room page's own action, one atomic dispatch.
+    case "COMPLETE_SORTING": {
       if (!state.character) return state;
-      const { startingHousePoints } = action.payload;
-      let character = state.character;
-      if (character.house) {
-        character = applyHousePointsAward(character, {
-          house: character.house,
-          amount: startingHousePoints,
-          reason: "Welcome to your house",
-          awardedBy: "Common Room",
-        });
-      }
-      return { ...state, character: { ...character, commonRoomIntroViewed: true } };
+      const { house, startingHousePoints } = action.payload;
+      const character = applyHousePointsAward(
+        { ...state.character, house, sortingCompleted: true },
+        { house, amount: startingHousePoints, reason: "Welcome to your house", awardedBy: "Sorting Hat" }
+      );
+      return { ...state, character };
     }
     case "DISCOVER_LOCATION": {
       if (!state.character) return state;
@@ -245,87 +146,42 @@ function gameReducer(state: GameState, action: GameAction): GameState {
         },
       };
     }
-    case "CAST_SPELL": {
+    case "STUDY_SPELL": {
       if (!state.character) return state;
-      const { spellId, manaCost, xpAward, masteryGain, success } = action.payload;
-
-      const characterAfterMana: Character = {
-        ...state.character,
-        energy: clamp(state.character.energy - manaCost, 0, state.character.maxEnergy),
-      };
-      const characterAfterXp = success ? awardXp(characterAfterMana, xpAward) : characterAfterMana;
+      const { spellId } = action.payload;
+      if (state.character.spellbook.some((s) => s.spellId === spellId && s.studied)) return state;
 
       const existing = state.character.spellbook.find((s) => s.spellId === spellId);
-      const nextMastery = clamp((existing?.mastery ?? 0) + (success ? masteryGain : 1), 0, 100);
+      const entry = { spellId, studied: true, studiedAt: new Date().toISOString() };
       const spellbook = existing
-        ? state.character.spellbook.map((s) =>
-            s.spellId === spellId ? { ...s, mastery: nextMastery, unlocked: true } : s
-          )
-        : [...state.character.spellbook, { spellId, mastery: nextMastery, unlocked: true }];
+        ? state.character.spellbook.map((s) => (s.spellId === spellId ? entry : s))
+        : [...state.character.spellbook, entry];
 
-      return { ...state, character: { ...characterAfterXp, spellbook } };
+      return { ...state, character: { ...state.character, spellbook } };
     }
-    case "BREW_POTION": {
+    case "STUDY_POTION": {
       if (!state.character) return state;
-      const { potionId, potionName, xpAward, masteryGain, yieldsPotion, housePointsDelta } =
-        action.payload;
+      const { potionId } = action.payload;
+      if (state.character.potionProgress[potionId]?.studied) return state;
 
-      const characterAfterXp = xpAward > 0 ? awardXp(state.character, xpAward) : state.character;
-
-      const existing = state.character.potionProgress[potionId];
       const potionProgress = {
         ...state.character.potionProgress,
-        [potionId]: {
-          potionId,
-          mastery: clamp((existing?.mastery ?? 0) + masteryGain, 0, 100),
-          timesBrewed: (existing?.timesBrewed ?? 0) + 1,
-        },
+        [potionId]: { potionId, studied: true, studiedAt: new Date().toISOString() },
       };
 
-      const inventory = yieldsPotion
-        ? addInventoryItem(state.character.inventory, potionName, "Potion", 1)
-        : state.character.inventory;
-
-      let character: Character = { ...characterAfterXp, potionProgress, inventory };
-      if (character.house && housePointsDelta !== 0) {
-        character = applyHousePointsAward(character, {
-          house: character.house,
-          amount: housePointsDelta,
-          reason: `Brewing ${potionName}`,
-          awardedBy: "Potions",
-        });
-      }
-
-      return { ...state, character };
-    }
-    case "USE_ITEM": {
-      if (!state.character) return state;
-      const { itemId, healthDelta = 0, energyDelta = 0, knowledgeDelta = 0 } = action.payload;
-      const item = state.character.inventory.find((i) => i.id === itemId);
-      if (!item || item.quantity <= 0) return state;
-
-      const inventory = state.character.inventory
-        .map((i) => (i.id === itemId ? { ...i, quantity: i.quantity - 1 } : i))
-        .filter((i) => i.quantity > 0);
-
-      const character: Character = {
-        ...state.character,
-        health: clamp(state.character.health + healthDelta, 0, state.character.maxHealth),
-        energy: clamp(state.character.energy + energyDelta, 0, state.character.maxEnergy),
-        knowledge: Math.max(0, state.character.knowledge + knowledgeDelta),
-        inventory,
-      };
-
-      return { ...state, character };
+      return { ...state, character: { ...state.character, potionProgress } };
     }
     case "STUDY_BOOK": {
       if (!state.character) return state;
       if (state.character.studiedBooks.includes(action.payload.bookId)) return state;
       const { bookId, knowledgeReward, unlocksSpellId, unlocksLocationId } = action.payload;
 
+      // Phase 4 - Spell Archive: no locked/unlocked spells anymore, so
+      // "unlocking" a spell via a book now just marks it studied - reading
+      // about a spell counts as studying it.
       let spellbook = state.character.spellbook;
       if (unlocksSpellId && !spellbook.some((s) => s.spellId === unlocksSpellId)) {
-        spellbook = [...spellbook, { spellId: unlocksSpellId, mastery: 0, unlocked: true }];
+        spellbook = [...spellbook, { spellId: unlocksSpellId, studied: true, studiedAt: new Date().toISOString() }];
       }
 
       let discoveredLocations = state.character.discoveredLocations;
@@ -373,16 +229,14 @@ function gameReducer(state: GameState, action: GameAction): GameState {
         questId,
         questTitle,
         questDescription,
-        xp = 0,
         housePoints: housePointsGain = 0,
         knowledge = 0,
         relationshipChanges = [],
-        inventoryItem,
         unlocksSpellId,
         unlocksLocationId,
       } = action.payload;
 
-      let character = xp > 0 ? awardXp(state.character, xp) : state.character;
+      let character = state.character;
       if (knowledge !== 0) {
         character = { ...character, knowledge: Math.max(0, character.knowledge + knowledge) };
       }
@@ -405,18 +259,9 @@ function gameReducer(state: GameState, action: GameAction): GameState {
         }
       }
 
-      const inventory = inventoryItem
-        ? addInventoryItem(
-            character.inventory,
-            inventoryItem.name,
-            inventoryItem.category,
-            inventoryItem.quantity
-          )
-        : character.inventory;
-
       let spellbook = character.spellbook;
       if (unlocksSpellId && !spellbook.some((s) => s.spellId === unlocksSpellId)) {
-        spellbook = [...spellbook, { spellId: unlocksSpellId, mastery: 0, unlocked: true }];
+        spellbook = [...spellbook, { spellId: unlocksSpellId, studied: true, studiedAt: new Date().toISOString() }];
       }
 
       let discoveredLocations = character.discoveredLocations;
@@ -434,7 +279,6 @@ function gameReducer(state: GameState, action: GameAction): GameState {
               title: questTitle,
               description: questDescription,
               completed: true,
-              rewardXp: xp,
               rewardHousePoints: housePointsGain,
             },
           ];
@@ -444,107 +288,15 @@ function gameReducer(state: GameState, action: GameAction): GameState {
         character: {
           ...character,
           relationships,
-          inventory,
           spellbook,
           discoveredLocations,
           quests,
         },
       };
     }
-    case "VIEW_ACCEPTANCE_LETTER":
-      if (!state.character) return state;
-      return { ...state, character: { ...state.character, acceptanceLetterViewed: true } };
-    case "COMPLETE_TUTORIAL":
-      if (!state.character) return state;
-      return { ...state, character: { ...state.character, tutorialCompleted: true } };
-    case "SEND_OWL_POST_MESSAGE": {
-      if (!state.character) return state;
-      const id = action.payload.id ?? crypto.randomUUID();
-      // Idempotent by id, so a seed (or a retried dispatch) can never
-      // duplicate a message that's already in the inbox.
-      if (state.character.owlPost.some((m) => m.id === id)) return state;
-      const message = buildOwlPostMessage({ ...action.payload, id });
-      return {
-        ...state,
-        character: { ...state.character, owlPost: [message, ...state.character.owlPost] },
-      };
-    }
-    case "MARK_OWL_POST_READ": {
-      if (!state.character) return state;
-      const owlPost = state.character.owlPost.map((m) =>
-        m.id === action.payload ? { ...m, read: true } : m
-      );
-      return { ...state, character: { ...state.character, owlPost } };
-    }
-    case "MARK_ALL_OWL_POST_READ": {
-      if (!state.character) return state;
-      const owlPost = state.character.owlPost.map((m) => ({ ...m, read: true }));
-      return { ...state, character: { ...state.character, owlPost } };
-    }
     case "AWARD_HOUSE_POINTS": {
       if (!state.character) return state;
       return { ...state, character: applyHousePointsAward(state.character, action.payload) };
-    }
-    case "SUBMIT_ASSIGNMENT": {
-      if (!state.character) return state;
-      const { assignmentId } = action.payload;
-      const assignment = getAssignment(assignmentId);
-      if (!assignment) return state;
-      if (state.character.assignmentSubmissions[assignmentId]?.status === "Submitted") return state;
-
-      const submission: AssignmentSubmission = {
-        assignmentId,
-        status: "Submitted",
-        submittedAt: new Date().toISOString(),
-      };
-
-      let character: Character = {
-        ...state.character,
-        assignmentSubmissions: {
-          ...state.character.assignmentSubmissions,
-          [assignmentId]: submission,
-        },
-      };
-
-      if (character.house && assignment.housePointsReward) {
-        character = applyHousePointsAward(character, {
-          house: character.house,
-          amount: assignment.housePointsReward,
-          reason: `Submitted "${assignment.title}"`,
-          awardedBy: "Assignments",
-        });
-      }
-
-      const confirmation = buildOwlPostMessage({
-        category: "Professors",
-        sender: "Assignments Office",
-        subject: `"${assignment.title}" Received`,
-        body: `Your submission for "${assignment.title}" has been received and is awaiting review.`,
-      });
-      character = { ...character, owlPost: [confirmation, ...character.owlPost] };
-
-      return { ...state, character };
-    }
-    // Phase 3D - Grade Management Bridge. Sole responsibility: move the
-    // existing submission from "Submitted" to "Graded" and record the
-    // score. No house points, no Owl Post, nothing else - those are
-    // separate, already-existing actions the caller (GradeBridgeSync)
-    // dispatches on its own. A missing or non-"Submitted" entry is a
-    // normal, silent no-op, not an error.
-    case "APPLY_PROFESSOR_GRADE": {
-      if (!state.character) return state;
-      const { assignmentId, grade } = action.payload;
-      const existing = state.character.assignmentSubmissions[assignmentId];
-      if (!existing || existing.status !== "Submitted") return state;
-
-      const submission: AssignmentSubmission = { ...existing, status: "Graded", grade };
-      return {
-        ...state,
-        character: {
-          ...state.character,
-          assignmentSubmissions: { ...state.character.assignmentSubmissions, [assignmentId]: submission },
-        },
-      };
     }
     case "ADD_PERSONAL_NOTE": {
       if (!state.character) return state;
@@ -622,9 +374,14 @@ function gameReducer(state: GameState, action: GameAction): GameState {
 interface GameContextValue {
   state: GameState;
   dispatch: Dispatch<GameAction>;
-  resetGame: () => void;
   syncStatus: SyncStatus;
   pendingGuestAdoption: boolean;
+  // Year-Based Onboarding (Phase 6L) - true once it's known whether a
+  // Character should exist for the signed-in user (a cloud character was
+  // found, or definitively none exists) - see the auto-synthesis effect
+  // below. JourneyGate reads this to avoid bouncing through Landing while
+  // a student's Character is still being resolved/synthesized.
+  cloudCheckComplete: boolean;
 }
 
 const GameContext = createContext<GameContextValue | undefined>(undefined);
@@ -635,9 +392,10 @@ export function GameProvider({ children }: { children: ReactNode }) {
     return saved ? { ...base, ...saved } : base;
   });
 
-  const { user } = useAuth();
+  const { user, profile, loading: authLoading } = useAuth();
   const [syncStatus, setSyncStatus] = useState<SyncStatus>("idle");
   const [pendingGuestAdoption, setPendingGuestAdoption] = useState(false);
+  const [cloudCheckComplete, setCloudCheckComplete] = useState(false);
 
   const stateRef = useRef(state);
   const previousUserId = useRef<string | null>(null);
@@ -661,32 +419,13 @@ export function GameProvider({ children }: { children: ReactNode }) {
     }
   }, [state]);
 
-  // Same pattern as the achievement check above: whenever an onboarding
-  // milestone a seed cares about becomes true, send that seed's Owl Post
-  // message if it hasn't been sent yet. This is also the reference example
-  // for how a future system (Academics, House Cup, ...) would react to
-  // state and publish its own message via SEND_OWL_POST_MESSAGE.
-  useEffect(() => {
-    if (!state.character) return;
-    const character = state.character;
-    const existingIds = new Set(character.owlPost.map((m) => m.id));
-    const due = owlPostSeeds.filter(
-      (seed) => seed.isEligible(character) && !existingIds.has(seed.id)
-    );
-    for (const seed of due) {
-      dispatch({
-        type: "SEND_OWL_POST_MESSAGE",
-        payload: { id: seed.id, category: seed.category, ...seed.build(character) },
-      });
-    }
-  }, [state]);
-
   // Fetch the cloud save once per sign-in. If none exists yet and this device
   // has local guest progress, offer to adopt it instead of silently choosing.
   useEffect(() => {
     const userId = user?.id ?? null;
     if (userId === previousUserId.current) return;
     previousUserId.current = userId;
+    setCloudCheckComplete(false);
     if (!userId) return;
 
     // Snapshot "did this device have a save *before* we asked the cloud"
@@ -707,11 +446,16 @@ export function GameProvider({ children }: { children: ReactNode }) {
         if (cloudState) {
           dispatch({ type: "LOAD_STATE", payload: { ...initialState, ...cloudState } });
           setSyncStatus("saved");
+          setCloudCheckComplete(true);
         } else if (hadLocalSaveBeforeFetch) {
+          // Unresolved - the player still has to choose keep-vs-discard,
+          // so this deliberately does NOT set cloudCheckComplete yet (see
+          // adoptGuestSave/discardGuestSave below, which resolve it).
           setPendingGuestAdoption(true);
           setSyncStatus("idle");
         } else {
           setSyncStatus("idle");
+          setCloudCheckComplete(true);
         }
       })
       .catch(() => {
@@ -722,6 +466,31 @@ export function GameProvider({ children }: { children: ReactNode }) {
       cancelled = true;
     };
   }, [user]);
+
+  // Year-Based Onboarding (Phase 6L) - there is no more Character Creation
+  // page. Once it's known whether a Character should exist
+  // (`cloudCheckComplete`) and it turns out none does, synthesize one,
+  // once, from the signed-in student's own AuthContext profile (their
+  // Admin-assigned display name/year/house - or, for a self-service
+  // signup with no admin-assigned year, a Year 1 default). Gated on
+  // `profile.role === "student"` - GameProvider wraps the entire app,
+  // including the Professor/Admin route trees, and neither of those roles
+  // should ever get a synthesized Character.
+  useEffect(() => {
+    if (!user || authLoading || !profile) return;
+    if (profile.role !== "student") return;
+    if (state.character) return;
+    if (!cloudCheckComplete || pendingGuestAdoption) return;
+
+    const { firstName, lastName } = splitFullName(profile.displayName);
+    const character = createInitialCharacter({
+      firstName,
+      lastName,
+      year: profile.year ?? undefined,
+      house: profile.house ?? undefined,
+    });
+    dispatch({ type: "CREATE_CHARACTER", payload: character });
+  }, [user, profile, authLoading, state.character, cloudCheckComplete, pendingGuestAdoption]);
 
   // Debounced push to the cloud while signed in — paused while a guest-adoption
   // decision is pending, so we never sync before the player has chosen.
@@ -741,6 +510,9 @@ export function GameProvider({ children }: { children: ReactNode }) {
     };
   }, [state, user, pendingGuestAdoption]);
 
+  // Internal only - not exposed on GameContextValue. Its one remaining
+  // caller is discardGuestSave() below; Settings no longer offers a manual
+  // "Reset Progress" control (University Portal Pivot, Phase 6M).
   function resetGame() {
     clearGameState();
     dispatch({ type: "RESET" });
@@ -749,6 +521,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
   function adoptGuestSave() {
     if (!user) return;
     setPendingGuestAdoption(false);
+    setCloudCheckComplete(true);
     setSyncStatus("saving");
     upsertCloudSave(user.id, stateRef.current)
       .then(() => setSyncStatus("saved"))
@@ -757,12 +530,13 @@ export function GameProvider({ children }: { children: ReactNode }) {
 
   function discardGuestSave() {
     setPendingGuestAdoption(false);
+    setCloudCheckComplete(true);
     resetGame();
   }
 
   return (
     <GameContext.Provider
-      value={{ state, dispatch, resetGame, syncStatus, pendingGuestAdoption }}
+      value={{ state, dispatch, syncStatus, pendingGuestAdoption, cloudCheckComplete }}
     >
       {children}
       {pendingGuestAdoption && (

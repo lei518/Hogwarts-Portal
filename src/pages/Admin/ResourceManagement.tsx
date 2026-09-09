@@ -5,13 +5,16 @@ import { useAdminScope } from "../../utils/adminScope";
 import { Button } from "../../components/ui/Button";
 import { ProfileSection } from "../../components/character/ProfileSection";
 import { LoadingState } from "../../components/ui/LoadingState";
+import { PageHeader } from "../../components/ui/PageHeader";
+import { Badge, type BadgeTone } from "../../components/ui/Badge";
+import { Table, Thead, Tbody, Tr, Th, Td, TableEmptyRow } from "../../components/ui/Table";
 import type { ResourceRequestStatus } from "../../types/adminPortal";
 
-const STATUS_COLORS: Record<ResourceRequestStatus, string> = {
-  Pending: "#c9a646",
-  Ordered: "#8ba6c9",
-  Delivered: "#6b9e6b",
-  Archived: "#8a8478",
+const STATUS_TONE: Record<ResourceRequestStatus, BadgeTone> = {
+  Pending: "gold",
+  Ordered: "sapphire",
+  Delivered: "emerald",
+  Archived: "neutral",
 };
 
 // A request moves forward one stage at a time - the same "no skipping
@@ -49,10 +52,11 @@ export function ResourceManagementPage() {
 
   return (
     <div className="px-4 md:px-8 py-6 md:py-8 max-w-4xl mx-auto flex flex-col gap-5">
-      <div>
-        <h1 className="text-2xl md:text-3xl font-display text-gold-bright mb-2">📦 Resource Management</h1>
-        <p className="text-parchment-dim text-sm">A review of the Library catalog and School Policies.</p>
-      </div>
+      <PageHeader
+        title="Resource Management"
+        description="A review of the Library catalog and School Policies."
+        icon={Package}
+      />
 
       <ProfileSection title={`Library Catalog · ${books.length} titles`}>
         <div className="flex flex-wrap gap-2">
@@ -60,12 +64,9 @@ export function ResourceManagementPage() {
             const count = books.filter((book) => book.category === category).length;
             if (count === 0) return null;
             return (
-              <span
-                key={category}
-                className="text-xs px-3 py-1.5 rounded-full border border-parchment-dim/25 text-parchment-dim"
-              >
+              <Badge key={category}>
                 {category} &middot; {count}
-              </span>
+              </Badge>
             );
           })}
         </div>
@@ -77,60 +78,59 @@ export function ResourceManagementPage() {
             const count = policies.filter((policy) => policy.category === category).length;
             if (count === 0) return null;
             return (
-              <span
-                key={category}
-                className="text-xs px-3 py-1.5 rounded-full border border-parchment-dim/25 text-parchment-dim"
-              >
+              <Badge key={category}>
                 {category} &middot; {count}
-              </span>
+              </Badge>
             );
           })}
         </div>
       </ProfileSection>
 
       <ProfileSection title="Procurement">
-        <div className="flex flex-col gap-2">
-          {resourceRequests.map((request) => {
-            const color = STATUS_COLORS[request.status];
-            const next = NEXT_STATUS[request.status];
-            return (
-              <div
-                key={request.id}
-                className="flex items-center justify-between gap-3 border border-parchment-dim/10 rounded-sm px-4 py-3"
-              >
-                <div className="min-w-0">
-                  <p className="text-parchment text-sm truncate">
-                    {request.itemName} &middot; {request.quantity}
-                  </p>
-                  <p className="text-parchment-dim text-xs">Requested {formatDate(request.requestedAt)}</p>
-                </div>
-                <div className="flex items-center gap-2 shrink-0">
-                  <span
-                    className="text-[10px] uppercase tracking-wide px-2 py-0.5 rounded-full border"
-                    style={{ color, borderColor: `${color}66`, background: `${color}15` }}
-                  >
-                    {request.status}
-                  </span>
-                  {next && (
-                    <Button
-                      variant="secondary"
-                      className="px-3 py-1 text-xs"
-                      onClick={() => setResourceRequestStatus(request.id, next)}
-                    >
-                      Mark {next}
-                    </Button>
-                  )}
-                </div>
-              </div>
-            );
-          })}
-        </div>
+        <Table>
+          <Thead>
+            <Tr>
+              <Th>Item</Th>
+              <Th>Quantity</Th>
+              <Th>Requested</Th>
+              <Th>Status</Th>
+              <Th>Action</Th>
+            </Tr>
+          </Thead>
+          <Tbody>
+            {resourceRequests.map((request) => {
+              const next = NEXT_STATUS[request.status];
+              return (
+                <Tr key={request.id}>
+                  <Td>{request.itemName}</Td>
+                  <Td className="text-parchment-dim">{request.quantity}</Td>
+                  <Td className="text-parchment-dim">{formatDate(request.requestedAt)}</Td>
+                  <Td>
+                    <Badge tone={STATUS_TONE[request.status]}>{request.status}</Badge>
+                  </Td>
+                  <Td>
+                    {next && (
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        onClick={() => setResourceRequestStatus(request.id, next)}
+                      >
+                        Mark {next}
+                      </Button>
+                    )}
+                  </Td>
+                </Tr>
+              );
+            })}
+            {resourceRequests.length === 0 && (
+              <TableEmptyRow colSpan={5}>No resource requests on file.</TableEmptyRow>
+            )}
+          </Tbody>
+        </Table>
       </ProfileSection>
 
       <ProfileSection title="Inventory" icon={Package}>
-        <p className="text-parchment-dim text-sm">
-          Physical school supplies and equipment tracking will be available here in a future milestone.
-        </p>
+        <p className="text-parchment-dim text-sm">Physical school supplies and equipment, tracked by location.</p>
       </ProfileSection>
     </div>
   );

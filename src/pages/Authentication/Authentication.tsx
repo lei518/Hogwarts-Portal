@@ -1,5 +1,8 @@
 import { useNavigate } from "react-router-dom";
+import { GraduationCap } from "lucide-react";
 import { Button } from "../../components/ui/Button";
+import { Card } from "../../components/ui/Card";
+import { PageHeader } from "../../components/ui/PageHeader";
 
 // The dedicated Authentication screen "Begin Journey" leads to. Its only
 // job is offering the two entry points into the (separate) Sign In /
@@ -9,11 +12,10 @@ export function Authentication() {
 
   return (
     <div className="min-h-screen bg-ink flex flex-col items-center justify-center px-6 py-16">
-      <div className="w-full max-w-sm border border-gold/30 rounded-sm bg-ink p-8 text-center">
-        <h1 className="text-2xl font-display text-gold-bright mb-1">Enter Hogwarts</h1>
-        <p className="text-parchment-dim text-sm mb-8">
-          Sign in to continue your story, or create an account to begin one.
-        </p>
+      <Card className="w-full max-w-sm p-8 text-center">
+        <div className="flex justify-center mb-6">
+          <PageHeader title="Enter Hogwarts" description="Sign in to continue your story, or create an account to begin one." icon={GraduationCap} />
+        </div>
 
         <div className="flex flex-col gap-4">
           <Button variant="primary" className="w-full" onClick={() => navigate("/sign-in")}>
@@ -23,7 +25,7 @@ export function Authentication() {
             Create Account
           </Button>
         </div>
-      </div>
+      </Card>
     </div>
   );
 }

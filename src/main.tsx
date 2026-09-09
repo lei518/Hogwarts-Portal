@@ -5,11 +5,12 @@ import "./index.css";
 import App from "./App.tsx";
 import { GameProvider } from "./context/GameContext";
 import { AuthProvider } from "./context/AuthContext";
+import { OwleryProvider } from "./context/OwleryContext";
+import { AcademicDataProvider } from "./context/AcademicDataContext";
 import { ProfessorAssignmentsProvider } from "./context/ProfessorAssignmentsContext";
 import { ProfessorGradesProvider } from "./context/ProfessorGradesContext";
-import { AssignmentBridgeSync } from "./bridges/AssignmentBridgeSync";
-import { GradeBridgeSync } from "./bridges/GradeBridgeSync";
 import { ErrorBoundary } from "./components/layout/ErrorBoundary";
+import { InactivityManager } from "./auth/InactivityManager";
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
@@ -19,19 +20,35 @@ createRoot(document.getElementById("root")!).render(
     <ErrorBoundary>
       <BrowserRouter>
         <AuthProvider>
-          <GameProvider>
-            {/* Phase 3D - mounted here (not inside ProfessorLayout) so the
-                Student Portal and Professor Portal share a single instance of
-                each context. AssignmentBridgeSync/GradeBridgeSync are the only
-                consumers on the Student side; see src/bridges/. */}
-            <ProfessorAssignmentsProvider>
-              <ProfessorGradesProvider>
-                <AssignmentBridgeSync />
-                <GradeBridgeSync />
-                <App />
-              </ProfessorGradesProvider>
-            </ProfessorAssignmentsProvider>
-          </GameProvider>
+          {/* Session Management (Phase 6K) - the single centralized
+              inactivity/session timer, mounted once here so every
+              authenticated portal (Student, Professor, Admin) benefits
+              without any of them owning a timer of their own. See
+              src/auth/InactivityManager.tsx. */}
+          <InactivityManager />
+          {/* Phase 5 - Owlery. Mounted here, not inside GameProvider, so
+              every role (Professor/Admin/the four new staff roles - none of
+              which have a Character) gets an inbox too, not just students. */}
+          <OwleryProvider>
+            <GameProvider>
+              {/* Phase 2 - inside GameProvider (not outside, as Phase 7A had
+                  it) because auto-enrollment needs the signed-in student's
+                  own Character.year; see context/AcademicDataContext.tsx's
+                  own comment. Courses/Assignments/Announcements/Enrollments/
+                  Submissions are fetched here, once, for every portal to
+                  share. */}
+              <AcademicDataProvider>
+                {/* Phase 3D - mounted here (not inside ProfessorLayout) so the
+                    Student Portal and Professor Portal share a single instance
+                    of each context. */}
+                <ProfessorAssignmentsProvider>
+                  <ProfessorGradesProvider>
+                    <App />
+                  </ProfessorGradesProvider>
+                </ProfessorAssignmentsProvider>
+              </AcademicDataProvider>
+            </GameProvider>
+          </OwleryProvider>
         </AuthProvider>
       </BrowserRouter>
     </ErrorBoundary>

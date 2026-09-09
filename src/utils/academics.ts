@@ -1,13 +1,14 @@
 import type { Character } from "../types/character";
 import type { AcademicProgressStatus, Assignment, Course, DayOfWeek, ScheduleEntry } from "../types/academics";
-// Phase 5B: these functions are called synchronously from several page
+// Phase 5B/7A: these functions are called synchronously from several page
 // render bodies (AcademicProgress, CourseDetail, the Student Planner, ...)
 // several layers above this file - making them async would force those
-// pages to change, which this milestone explicitly avoids. They read the
-// repositories' Phase 5B transitional sync accessor instead (see
-// repositories/*.ts's own comments on why it exists and when it goes away).
+// pages to change, which this milestone explicitly avoids. They read
+// data/assignments.ts's live, Supabase-backed synchronous read cache (see
+// that file's own comment) instead of a repository directly.
 import { schedulesRepositorySync } from "../repositories/schedulesRepository";
-import { assignmentsRepositorySync } from "../repositories/assignmentsRepository";
+import { getAllAssignments, getAssignmentsForCourse } from "../data/assignments";
+import { getMySubmissionForAssignment } from "../data/submissions";
 
 const WEEK: DayOfWeek[] = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
 
@@ -15,13 +16,21 @@ const WEEK: DayOfWeek[] = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday
 // tied to it (see data/assignments.ts) has been submitted - that's the one
 // thing Assignments changes here; a course with no assignments yet simply
 // can't reach Completed, same as before this system existed.
-export function getCourseStatus(character: Character, course: Course): AcademicProgressStatus {
+//
+// Phase 7A - only `id`/`requiredYear` are read, so this accepts the seeded
+// catalog shape (no live-resolved professorId) as well as a full Course -
+// callers with just the catalog (e.g. pages/Character/Character.tsx) don't
+// need to fetch the live join just to compute a status.
+export function getCourseStatus(
+  character: Character,
+  course: Pick<Course, "id" | "requiredYear">
+): AcademicProgressStatus {
   if (character.year < course.requiredYear) return "Not Started";
 
-  const courseAssignments = assignmentsRepositorySync.getForCourse(course.id);
+  const courseAssignments = getAssignmentsForCourse(course.id);
   if (courseAssignments.length > 0) {
     const allSubmitted = courseAssignments.every(
-      (assignment) => character.assignmentSubmissions[assignment.id]?.status === "Submitted"
+      (assignment) => getMySubmissionForAssignment(assignment.id) !== undefined
     );
     if (allSubmitted) return "Completed";
   }
@@ -29,25 +38,15 @@ export function getCourseStatus(character: Character, course: Course): AcademicP
   return "In Progress";
 }
 
-// The Planner's "Assignment Deadlines" reflects this - Assignments (shared,
-// professor-authored) stays the canonical source; only submission state
-// lives on Character.
+// The Planner's "Upcoming Academic Activities" reflects this - Assignments
+// (shared, professor-authored) stays the canonical source; only submission
+// state is per-student (see data/submissions.ts's live-backed cache).
 export function getUpcomingAssignments(character: Character, count: number): Assignment[] {
-  return assignmentsRepositorySync
-    .getAll()
+  return getAllAssignments()
     .filter((assignment) => assignment.requiredYear <= character.year)
-    .filter((assignment) => character.assignmentSubmissions[assignment.id]?.status !== "Submitted")
+    .filter((assignment) => getMySubmissionForAssignment(assignment.id) === undefined)
     .sort((a, b) => a.dueDate.localeCompare(b.dueDate))
     .slice(0, count);
-}
-
-// Aggregated from the Spellbook's own data (data/spells.ts + character.spellbook)
-// rather than a new field - Spellbook stays the canonical source.
-export function getSpellMasterySummary(character: Character): string {
-  if (character.spellbook.length === 0) return "Not yet started";
-  const total = character.spellbook.reduce((sum, s) => sum + s.mastery, 0);
-  const average = Math.round(total / character.spellbook.length);
-  return `${character.spellbook.length} spell${character.spellbook.length === 1 ? "" : "s"} · ${average}% avg mastery`;
 }
 
 // The Planner's "Upcoming Classes" reflects this same seeded schedule

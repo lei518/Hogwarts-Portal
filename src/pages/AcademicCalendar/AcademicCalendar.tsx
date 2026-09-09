@@ -1,5 +1,9 @@
 import { useMemo, useState } from "react";
+import { CalendarDays } from "lucide-react";
 import { academicCalendar, calendarEventCategories } from "../../data/academicCalendar";
+import { PageHeader } from "../../components/ui/PageHeader";
+import { Card } from "../../components/ui/Card";
+import { Badge } from "../../components/ui/Badge";
 import type { CalendarEventCategory } from "../../types/resources";
 
 function formatDate(iso: string): string {
@@ -21,10 +25,13 @@ export function AcademicCalendarPage() {
 
   return (
     <div className="px-4 md:px-8 py-6 md:py-8 max-w-3xl mx-auto">
-      <h1 className="text-2xl md:text-3xl font-display text-gold-bright mb-2">🗓️ Academic Calendar</h1>
-      <p className="text-parchment-dim text-sm mb-6">Term dates, holidays, exams, and deadlines for the year.</p>
+      <PageHeader
+        title="Academic Calendar"
+        description="Term dates, holidays, exams, and deadlines for the year."
+        icon={CalendarDays}
+      />
 
-      <div className="flex flex-wrap gap-2 mb-6">
+      <div className="flex flex-wrap gap-2 my-6">
         {(["All", ...calendarEventCategories] as const).map((option) => (
           <button
             key={option}
@@ -44,11 +51,9 @@ export function AcademicCalendarPage() {
         {filtered.map((event) => {
           const isPast = event.date < todayIso;
           return (
-            <div
+            <Card
               key={event.id}
-              className={`flex items-start justify-between gap-3 border rounded-sm px-5 py-4 ${
-                isPast ? "border-parchment-dim/10 opacity-50" : "border-parchment-dim/20"
-              }`}
+              className={`flex items-start justify-between gap-3 px-5 py-4 ${isPast ? "opacity-50" : ""}`}
             >
               <div className="min-w-0">
                 <p className="font-display text-lg text-parchment">{event.title}</p>
@@ -57,12 +62,10 @@ export function AcademicCalendarPage() {
                 )}
               </div>
               <div className="text-right shrink-0">
-                <p className="text-parchment text-sm">{formatDate(event.date)}</p>
-                <span className="text-[10px] uppercase tracking-wide px-2 py-0.5 rounded-full border border-parchment-dim/25 text-parchment-dim">
-                  {event.category}
-                </span>
+                <p className="text-parchment text-sm mb-1">{formatDate(event.date)}</p>
+                <Badge>{event.category}</Badge>
               </div>
-            </div>
+            </Card>
           );
         })}
       </div>

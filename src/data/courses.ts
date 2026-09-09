@@ -2,11 +2,16 @@ import type { Course } from "../types/academics";
 
 // Year 1 courses. Real Hogwarts curriculum, not placeholder content -
 // classroom names match data/locations.ts where a matching location exists.
-export const courses: Course[] = [
+// Phase 7A - `professorId` is no longer declared here: it's resolved live
+// from the course_professor_assignments table (see
+// repositories/coursesRepository.ts) so it always reflects who an
+// administrator has actually assigned, never a fabricated name. Omitted
+// literals below default to `professorId: undefined`, overwritten by the
+// repository's join before a page ever sees a Course.
+export const courses: Omit<Course, "professorId">[] = [
   {
     id: "charms",
     name: "Charms",
-    professorId: "flitwick",
     classroom: "Charms Classroom",
     description:
       "The study of imbuing objects and people with useful magical properties, from simple levitation to more advanced enchantments.",
@@ -16,7 +21,6 @@ export const courses: Course[] = [
   {
     id: "potions",
     name: "Potions",
-    professorId: "snape",
     classroom: "Potions Classroom",
     description:
       "Precise, cauldron-based brewing - measuring ingredients exactly and following method to the letter to produce a working potion.",
@@ -26,7 +30,6 @@ export const courses: Course[] = [
   {
     id: "herbology",
     name: "Herbology",
-    professorId: "sprout",
     classroom: "Greenhouses",
     description:
       "The study of magical plants and fungi, and how to grow, handle, and use them safely - some rather more safely than others.",
@@ -36,7 +39,6 @@ export const courses: Course[] = [
   {
     id: "defence-against-the-dark-arts",
     name: "Defence Against the Dark Arts",
-    professorId: "quirrell",
     classroom: "Defence Against the Dark Arts Classroom",
     description:
       "Practical and theoretical training in recognizing and countering dark creatures, curses, and hexes.",
@@ -46,7 +48,6 @@ export const courses: Course[] = [
   {
     id: "astronomy",
     name: "Astronomy",
-    professorId: "sinistra",
     classroom: "Astronomy Tower",
     description:
       "Charting the night sky, the movements of the planets, and their long-recognized significance in magical theory.",
@@ -56,7 +57,6 @@ export const courses: Course[] = [
   {
     id: "history-of-magic",
     name: "History of Magic",
-    professorId: "binns",
     classroom: "History of Magic Classroom",
     description:
       "The long and eventful history of the wizarding world, from goblin rebellions to the founding of Hogwarts itself.",
@@ -66,7 +66,6 @@ export const courses: Course[] = [
   {
     id: "flying",
     name: "Flying",
-    professorId: "hooch",
     classroom: "Quidditch Pitch",
     description:
       "Broomstick handling fundamentals - mounting, hovering, and controlled flight, taught to every first year together.",
@@ -74,6 +73,6 @@ export const courses: Course[] = [
   },
 ];
 
-export function getCourse(id: string): Course | undefined {
+export function getCourse(id: string): Omit<Course, "professorId"> | undefined {
   return courses.find((course) => course.id === id);
 }

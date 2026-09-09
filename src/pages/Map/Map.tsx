@@ -1,8 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { Map as MapIcon, User } from "lucide-react";
 import { useGame } from "../../context/GameContext";
 import { locations, getLocation } from "../../data/locations";
 import { initialNpcs, wanderableLocationIds, type Npc } from "../../data/npcs";
+import { PageHeader } from "../../components/ui/PageHeader";
 
 function connectionPairs() {
   const seen = new Set<string>();
@@ -53,18 +55,22 @@ export function MapPage() {
 
   return (
     <div className="px-4 md:px-8 py-6 md:py-8 max-w-6xl mx-auto">
-      <div className="flex items-center justify-between mb-4">
-        <h1 className="text-2xl md:text-3xl font-display text-gold-bright">
-          🗺️ Campus Map
-        </h1>
-        <p className="text-parchment-dim text-xs">
-          {state.character!.discoveredLocations.length} / {locations.length} discovered
-        </p>
+      <div className="mb-4">
+        <PageHeader
+          title="Campus Map"
+          description="An interactive directory of the grounds and castle."
+          icon={MapIcon}
+          action={
+            <p className="text-parchment-dim text-xs">
+              {state.character!.discoveredLocations.length} / {locations.length} discovered
+            </p>
+          }
+        />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-5">
         <div
-          className="relative rounded-sm border border-gold/25 overflow-hidden"
+          className="relative rounded-lg border border-gold/25 overflow-hidden"
           style={{
             aspectRatio: "4 / 5",
             background:
@@ -139,7 +145,7 @@ export function MapPage() {
           })}
         </div>
 
-        <aside className="border border-parchment-dim/20 rounded-sm p-5 min-h-[200px]">
+        <aside className="bg-surface border border-parchment-dim/15 rounded-lg shadow-sm shadow-black/20 p-5 min-h-[200px]">
           {!selectedNpc && (
             <p className="text-parchment-dim text-sm">
               Select a location to open its directory page, or a moving figure to see who they are.
@@ -148,7 +154,9 @@ export function MapPage() {
 
           {selectedNpc && (
             <div>
-              <p className="text-3xl mb-2">{selectedNpc.emoji}</p>
+              <span className="flex items-center justify-center w-10 h-10 rounded-lg bg-gold/10 border border-gold/20 text-gold-bright mb-3">
+                <User size={18} />
+              </span>
               <h2 className="font-display text-xl text-gold-bright mb-1">{selectedNpc.name}</h2>
               <p className="text-parchment-dim text-sm mb-4">{selectedNpc.role}</p>
               <p className="text-parchment-dim text-xs uppercase tracking-wide mb-1">

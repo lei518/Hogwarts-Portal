@@ -1,8 +1,12 @@
 import { useMemo, useState } from "react";
+import { BookOpen } from "lucide-react";
 import { useGame } from "../../context/GameContext";
 import { books, bookCategories, type BookCategory } from "../../data/books";
 import { BookCard } from "../../components/library/BookCard";
 import { BookDetail } from "../../components/library/BookDetail";
+import { PageHeader } from "../../components/ui/PageHeader";
+import { Input, Select } from "../../components/ui/Input";
+import { EmptyState } from "../../components/ui/EmptyState";
 
 type SortOption = "title" | "knowledge";
 
@@ -58,22 +62,19 @@ export function LibraryPage() {
 
   return (
     <div className="px-4 md:px-8 py-6 md:py-8 max-w-5xl mx-auto">
-      <h1 className="text-2xl md:text-3xl font-display text-gold-bright mb-6">
-        📚 Hogwarts Library
-      </h1>
+      <PageHeader title="Hogwarts Library" icon={BookOpen} />
 
-      <div className="flex flex-col sm:flex-row gap-3 mb-6">
-        <input
+      <div className="flex flex-col sm:flex-row gap-3 my-6">
+        <Input
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder="Search books..."
           aria-label="Search books"
-          className="flex-1 bg-void/50 border border-parchment-dim/30 rounded-sm px-4 py-2.5 text-parchment placeholder:text-parchment-dim/50 focus:border-gold outline-none"
+          className="flex-1"
         />
-        <select
+        <Select
           value={category}
           onChange={(e) => setCategory(e.target.value as BookCategory | "All")}
-          className="bg-void/50 border border-parchment-dim/30 rounded-sm px-3 py-2.5 text-parchment outline-none"
         >
           <option value="All">All categories</option>
           {bookCategories.map((c) => (
@@ -81,15 +82,11 @@ export function LibraryPage() {
               {c}
             </option>
           ))}
-        </select>
-        <select
-          value={sort}
-          onChange={(e) => setSort(e.target.value as SortOption)}
-          className="bg-void/50 border border-parchment-dim/30 rounded-sm px-3 py-2.5 text-parchment outline-none"
-        >
+        </Select>
+        <Select value={sort} onChange={(e) => setSort(e.target.value as SortOption)}>
           <option value="title">Sort: Title</option>
           <option value="knowledge">Sort: Knowledge reward</option>
-        </select>
+        </Select>
       </div>
 
       <p className="text-parchment-dim text-sm mb-4">
@@ -109,9 +106,9 @@ export function LibraryPage() {
       </div>
 
       {filtered.length === 0 && (
-        <p className="text-parchment-dim text-sm text-center mt-12">
-          No books match your search.
-        </p>
+        <div className="mt-12">
+          <EmptyState message="No books match your search." icon={BookOpen} />
+        </div>
       )}
 
       {selectedBook && (

@@ -1,11 +1,13 @@
 import { useGame } from "../../context/GameContext";
 import { WelcomeWidget } from "../../components/dashboard/widgets/WelcomeWidget";
+import { CurrentCoursesWidget } from "../../components/dashboard/widgets/CurrentCoursesWidget";
 import { CurrentFocusWidget } from "../../components/dashboard/widgets/CurrentFocusWidget";
 import { TodaysScheduleWidget } from "../../components/dashboard/widgets/TodaysScheduleWidget";
 import { AcademicStandingWidget } from "../../components/dashboard/widgets/AcademicStandingWidget";
 import { HouseCupSummaryWidget } from "../../components/dashboard/widgets/HouseCupSummaryWidget";
-import { RecentOwlPostWidget } from "../../components/dashboard/widgets/RecentOwlPostWidget";
+import { RecentOwleryWidget } from "../../components/dashboard/widgets/RecentOwleryWidget";
 import { SchoolAnnouncementsWidget } from "../../components/dashboard/widgets/SchoolAnnouncementsWidget";
+import { CourseAnnouncementsWidget } from "../../components/dashboard/widgets/CourseAnnouncementsWidget";
 import { QuickAccessWidget } from "../../components/dashboard/widgets/QuickAccessWidget";
 import { LatestGradedAssignmentWidget } from "../../components/dashboard/widgets/LatestGradedAssignmentWidget";
 import { RecentProfessorFeedbackWidget } from "../../components/dashboard/widgets/RecentProfessorFeedbackWidget";
@@ -26,11 +28,13 @@ export function Dashboard() {
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <CurrentFocusWidget />
+        <CurrentCoursesWidget />
         <TodaysScheduleWidget />
         <AcademicStandingWidget />
         <HouseCupSummaryWidget />
-        <RecentOwlPostWidget />
+        <RecentOwleryWidget />
         <SchoolAnnouncementsWidget />
+        <CourseAnnouncementsWidget />
         <LatestGradedAssignmentWidget />
         <RecentProfessorFeedbackWidget />
         <UpcomingGradedWorkWidget />

@@ -8,7 +8,11 @@
 export interface Course {
   id: string;
   name: string;
-  professorId: string; // references data/professors.ts - Course never duplicates the name
+  // Phase 7A - Live Academic Data. No longer a hardcoded seed value: this is
+  // resolved at read time from the live course_professor_assignments table
+  // (see repositories/coursesRepository.ts) - null means "To Be Assigned",
+  // never a fabricated professor.
+  professorId: string | null;
   classroom: string;
   description: string;
   requiredYear: number;
@@ -31,12 +35,16 @@ export interface ScheduleEntry {
 
 export type AcademicProgressStatus = "Not Started" | "In Progress" | "Completed";
 
+// Phase 7A - Assignments/Quizzes/Exams are all the same shared shape; only
+// the label differs, so this doesn't need three separate types.
+export type AssignmentItemType = "Assignment" | "Quiz" | "Exam";
+
 // The canonical academic-work model, shared by the Student Portal and the
-// future Professor Portal. An Assignment is the shared, professor-authored
-// definition (today seeded, later created/edited through a Professor
-// Portal that writes into the same collection - see data/assignments.ts);
-// AssignmentSubmission is the per-student record of doing it, which is why
-// it lives on Character, not here.
+// Professor Portal - both read the same live `assignments` table (see
+// repositories/assignmentsRepository.ts). Submission is the per-student
+// record of doing it (see below) - Phase 2 moved this off Character and
+// into its own live, cross-user-visible table, since a professor grading
+// it needs to see it too.
 export interface Assignment {
   id: string;
   courseId: string;
@@ -44,15 +52,34 @@ export interface Assignment {
   description: string;
   dueDate: string; // ISO "YYYY-MM-DD"
   requiredYear: number;
+  itemType: AssignmentItemType;
   housePointsReward?: number; // optional - awarded once on submission
   maxGrade?: number; // future - Professor Portal grading
 }
 
-export type AssignmentStatus = "Not Started" | "Submitted" | "Graded";
+// Phase 2 - Real Academic Workflow. A row only ever exists once a student
+// has actually submitted something - "Not Submitted" is the absence of a
+// Submission, never a fabricated placeholder row (see
+// repositories/submissionsRepository.ts, backed by the live
+// `assignment_submissions` table). `status` starts as "Submitted" or
+// "Late" (computed once, at submit time, against the assignment's due
+// date) and becomes "Graded" once a professor grades it.
+export type SubmissionStatus = "Submitted" | "Late" | "Graded";
 
-export interface AssignmentSubmission {
+// The display-only status a student-facing page shows, which does include
+// the no-row case - never persisted as a Submission's own `status`.
+export type AssignmentDisplayStatus = "Not Submitted" | SubmissionStatus;
+
+export interface Submission {
+  id: string;
   assignmentId: string;
-  status: AssignmentStatus;
-  submittedAt?: string;
-  grade?: number; // future - set once Professor Portal grading exists
+  studentUserId: string;
+  submissionText: string;
+  submittedAt: string;
+  status: SubmissionStatus;
+  score?: number;
+  maxScore?: number;
+  feedback?: string;
+  gradedBy?: string;
+  gradedAt?: string;
 }

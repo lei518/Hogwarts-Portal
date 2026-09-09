@@ -1,6 +1,7 @@
-import { Download, TrendingUp } from "lucide-react";
+import { Download, TrendingUp, LineChart } from "lucide-react";
 import { useAdminAnalytics } from "../../utils/adminAnalytics";
 import { ProfileSection, ProfileField } from "../../components/character/ProfileSection";
+import { PageHeader } from "../../components/ui/PageHeader";
 
 // Pure aggregation over data every other module already owns - useAdminAnalytics
 // computes everything below fresh on every render; nothing here is stored,
@@ -12,10 +13,11 @@ export function AnalyticsPage() {
 
   return (
     <div className="px-4 md:px-8 py-6 md:py-8 max-w-3xl mx-auto flex flex-col gap-5">
-      <div>
-        <h1 className="text-2xl md:text-3xl font-display text-gold-bright mb-2">📈 Analytics</h1>
-        <p className="text-parchment-dim text-sm">School-wide numbers, computed from existing data.</p>
-      </div>
+      <PageHeader
+        title="Analytics"
+        description="School-wide numbers, computed from existing data."
+        icon={LineChart}
+      />
 
       <ProfileSection title="Directory">
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
@@ -40,17 +42,6 @@ export function AnalyticsPage() {
         </div>
       </ProfileSection>
 
-      <ProfileSection title="Owl Post">
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-          <ProfileField label="Messages" value={stats.owlPostTotal} />
-          <ProfileField label="Unread" value={stats.owlPostUnread} />
-        </div>
-        <p className="text-parchment-dim text-xs mt-3">
-          Reflects the currently signed-in Character's own inbox - there is no multi-student message ledger
-          yet.
-        </p>
-      </ProfileSection>
-
       <ProfileSection title="Admin Operations">
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
           <ProfileField label="Active Operations" value={stats.activeAdministrativeOperationsCount} />
@@ -69,15 +60,11 @@ export function AnalyticsPage() {
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <ProfileSection title="Export Reports" icon={Download}>
-          <p className="text-parchment-dim text-sm">
-            Downloading these numbers as a spreadsheet will be available here in a future milestone.
-          </p>
+          <p className="text-parchment-dim text-sm">Save these figures for offline review and reporting.</p>
         </ProfileSection>
 
         <ProfileSection title="Trend Forecasting" icon={TrendingUp}>
-          <p className="text-parchment-dim text-sm">
-            Charting these numbers over time will be available here once historical snapshots are recorded.
-          </p>
+          <p className="text-parchment-dim text-sm">See how these numbers are trending across the term.</p>
         </ProfileSection>
       </div>
     </div>

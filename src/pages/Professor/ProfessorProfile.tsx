@@ -3,6 +3,8 @@ import { History, Mail } from "lucide-react";
 import { useProfessorScope } from "../../utils/professorScope";
 import { ProfileSection, ProfileField } from "../../components/character/ProfileSection";
 import { LoadingState } from "../../components/ui/LoadingState";
+import { Card } from "../../components/ui/Card";
+import { AccountSection } from "../../components/settings/AccountSection";
 
 // Canonical owner of this professor's Professor Portal identity - separate
 // from, but linked to, the existing Resources -> Professor Directory entry
@@ -13,6 +15,12 @@ import { LoadingState } from "../../components/ui/LoadingState";
 // useProfessorScope() (in turn from AuthenticatedProfessorContext), the
 // signed-in professor's own identity - see that context's comment on how
 // it's resolved and what a non-matched professor sees instead.
+//
+// Session Management (Phase 6K) / University Portal Pivot (Phase 6N):
+// this is the Professor Portal's own "user/profile" area, so the shared
+// AccountSection (Account info, password change, Sign Out) lives here -
+// the same component the Student Portal's Settings page uses, no
+// duplicated logout/password logic.
 export function ProfessorProfilePage() {
   const { profile, loading } = useProfessorScope();
 
@@ -34,7 +42,7 @@ export function ProfessorProfilePage() {
 
   return (
     <div className="px-4 md:px-8 py-6 md:py-8 max-w-3xl mx-auto flex flex-col gap-5">
-      <section className="border border-parchment-dim/20 rounded-sm px-6 py-6">
+      <Card as="section" className="px-6 py-6">
         <p className="text-parchment-dim text-xs uppercase tracking-[0.2em] mb-1">{profile.department}</p>
         <h1 className="text-2xl md:text-3xl font-display text-gold-bright mb-3">{profile.displayName}</h1>
         <p className="text-parchment text-sm leading-relaxed mb-5">{profile.bio}</p>
@@ -43,26 +51,26 @@ export function ProfessorProfilePage() {
           <ProfileField label="Office" value={profile.officeLocation} />
           <ProfileField label="Years at Hogwarts" value={profile.yearsAtHogwarts} />
         </div>
-      </section>
+      </Card>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <ProfileSection title="Teaching History" icon={History}>
-          <p className="text-parchment-dim text-sm">
-            Past terms and courses taught will appear here once teaching history is tracked.
-          </p>
+          <p className="text-parchment-dim text-sm">Past terms and courses you've taught at Hogwarts.</p>
         </ProfileSection>
 
-        <ProfileSection title="Contact via Owl Post" icon={Mail}>
-          <p className="text-parchment-dim text-sm">
-            Students will be able to reach you here once Owl Post integration is available for the Professor
-            Portal.
-          </p>
+        <ProfileSection title="Contact via Owlery" icon={Mail}>
+          <p className="text-parchment-dim text-sm mb-3">Students can reach you directly through the Owlery.</p>
+          <Link to="/professor/owlery" className="text-gold hover:text-gold-bright text-xs">
+            Open your Owlery inbox &rarr;
+          </Link>
         </ProfileSection>
       </div>
 
       <Link to={`/professors/${profile.id}`} className="text-gold hover:text-gold-bright text-xs">
         View public listing in the Professor Directory &rarr;
       </Link>
+
+      <AccountSection />
     </div>
   );
 }

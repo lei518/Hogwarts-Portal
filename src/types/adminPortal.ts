@@ -1,5 +1,6 @@
 import type { House } from "./game";
 import type { CalendarEventCategory } from "./resources";
+import type { UserRole } from "../services/supabase";
 
 // Admin Portal Foundation - standalone module, seeded data only, mirrors
 // the Professor Portal's own launch (see CLAUDE.md). Independent
@@ -23,7 +24,10 @@ export interface AdminProfile {
   bio: string;
 }
 
-export type AccountRole = "student" | "professor" | "admin";
+// Phase 5 - kept as its own name (Admin Portal's own vocabulary for "what
+// role can an account be") but no longer independently duplicated - always
+// exactly UserRole, the root role type in services/supabase.ts.
+export type AccountRole = UserRole;
 export type AccountStatus = "Active" | "Suspended" | "Locked" | "Pending";
 
 // The one genuinely new owned model this milestone: account/role
@@ -55,6 +59,11 @@ export interface CreateAccountInput {
   email: string;
   password: string;
   role: AccountRole;
+  // Year-Based Onboarding (Phase 6L) - only meaningful for role "student";
+  // `year` required for a student, `house` required only for Year 2-7
+  // (Year 1 gets their house from the Sorting Hat ceremony instead).
+  year?: number;
+  house?: House;
 }
 
 // Admin Operations (Phase 4B). Four independent models, one per workflow

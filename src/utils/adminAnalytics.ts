@@ -1,20 +1,18 @@
 import type { House } from "../types/game";
 import type { HousePointAward } from "../types/campusLife";
+import type { Announcement } from "../types/resources";
 import { useGame } from "../context/GameContext";
 import { useProfessorAssignments } from "../context/ProfessorAssignmentsContext";
 import { useProfessorGrades } from "../context/ProfessorGradesContext";
 import { useAdmin } from "../context/AdminContext";
-// Phase 5B: useAdminAnalytics is a hook called synchronously in every Admin
-// page's render body - see repositories/*.ts's own comments on each
-// Phase 5B transitional sync accessor.
-import { studentsRepositorySync } from "../repositories/studentsRepository";
-import { professorsRepositorySync } from "../repositories/professorsRepository";
-import { assignmentsRepositorySync } from "../repositories/assignmentsRepository";
+import { useAcademicData } from "../context/AcademicDataContext";
+import { getAllAssignments } from "../data/assignments";
 import { getFullName } from "./character";
 
 export interface AdminAnalyticsSnapshot {
   studentCount: number;
   professorCount: number;
+  activeAccountCount: number;
   assignmentCount: number;
   publishedAssignmentCount: number;
   draftAssignmentCount: number;
@@ -24,8 +22,6 @@ export interface AdminAnalyticsSnapshot {
   activeCharacterName: string | null;
   houseCupStandings: { house: House; points: number }[];
   recentHouseAwards: HousePointAward[];
-  owlPostTotal: number;
-  owlPostUnread: number;
   // Admin Operations (Phase 4B) - AdminContext's own state, aggregated the
   // same way as everything else here: computed fresh, never stored.
   pendingServiceRequestCount: number;
@@ -36,6 +32,10 @@ export interface AdminAnalyticsSnapshot {
   housePointAdjustmentsAwaitingReviewCount: number;
   housePointAdjustmentNetTotal: number;
   activeAdministrativeOperationsCount: number;
+  // Phase 6 - Communication & Administration System.
+  announcementDraftCount: number;
+  announcementPublishedCount: number;
+  recentAnnouncements: Announcement[];
 }
 
 // Admin Portal Foundation - the one read-only helper every Admin page goes
@@ -45,17 +45,21 @@ export interface AdminAnalyticsSnapshot {
 // Analytics (and the Dashboard's summary cards, and House Cup Management)
 // never become a second source of truth for any of it.
 //
-// House Cup standings and Owl Post statistics are a disclosed
-// simplification: this is a single-player portal with exactly one live
-// Character per session, so "all students" here really means "whichever
-// Character is currently signed in" - there is no multi-student ledger to
-// aggregate across, the same limitation Professor Portal's own seeded
-// roster already carries.
+// House Cup standings are a disclosed simplification: this is a
+// single-player portal with exactly one live Character per session, so
+// "all students" here really means "whichever Character is currently
+// signed in" - there is no multi-student ledger to aggregate across, the
+// same limitation Professor Portal's own seeded roster already carries.
+// Phase 5 - Owlery's own message counts were dropped rather than rebuilt
+// as a cross-user query here (see the Phase 5 plan) - Owlery is a real
+// per-account inbox now, not a single-Character quirk this module could
+// meaningfully aggregate.
 export function useAdminAnalytics(): AdminAnalyticsSnapshot {
   const { state } = useGame();
   const { assignments } = useProfessorAssignments();
   const { submissions } = useProfessorGrades();
-  const { serviceRequests, calendarDrafts, housePointAdjustments, resourceRequests } = useAdmin();
+  const { accounts, serviceRequests, calendarDrafts, housePointAdjustments, resourceRequests } = useAdmin();
+  const { announcements } = useAcademicData();
   const character = state.character;
 
   const houseCupStandings = character
@@ -71,21 +75,26 @@ export function useAdminAnalytics(): AdminAnalyticsSnapshot {
     (r) => r.status === "Pending" || r.status === "Ordered"
   ).length;
   const housePointAdjustmentsAwaitingReviewCount = housePointAdjustments.filter((a) => !a.reviewed).length;
+  const recentAnnouncements = [...announcements]
+    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+    .slice(0, 5);
 
   return {
-    studentCount: studentsRepositorySync.getAll().length,
-    professorCount: professorsRepositorySync.getAll().length,
-    assignmentCount: assignmentsRepositorySync.getAll().length,
+    // Phase 7A - live account counts (see AdminContext.accounts, the same
+    // Supabase-backed source StudentRecords.tsx/ProfessorRecords.tsx read)
+    // instead of the seeded student/professor directory arrays.
+    studentCount: accounts.filter((account) => account.role === "student").length,
+    professorCount: accounts.filter((account) => account.role === "professor").length,
+    activeAccountCount: accounts.filter((account) => account.status === "Active").length,
+    assignmentCount: getAllAssignments().length,
     publishedAssignmentCount: assignments.filter((a) => a.status === "Published").length,
     draftAssignmentCount: assignments.filter((a) => a.status === "Draft").length,
     archivedAssignmentCount: assignments.filter((a) => a.status === "Archived").length,
-    pendingReviewCount: submissions.filter((s) => s.status === "Pending").length,
-    reviewedSubmissionCount: submissions.filter((s) => s.status !== "Pending").length,
+    pendingReviewCount: submissions.filter((s) => s.status !== "Graded").length,
+    reviewedSubmissionCount: submissions.filter((s) => s.status === "Graded").length,
     activeCharacterName: character ? getFullName(character) : null,
     houseCupStandings,
     recentHouseAwards: character ? character.housePointAwards.slice(0, 5) : [],
-    owlPostTotal: character?.owlPost.length ?? 0,
-    owlPostUnread: character?.owlPost.filter((m) => !m.read).length ?? 0,
     pendingServiceRequestCount,
     draftCalendarEventCount,
     publishedCalendarEventCount,
@@ -95,5 +104,8 @@ export function useAdminAnalytics(): AdminAnalyticsSnapshot {
     housePointAdjustmentNetTotal: housePointAdjustments.reduce((sum, a) => sum + a.amount, 0),
     activeAdministrativeOperationsCount:
       pendingServiceRequestCount + draftCalendarEventCount + outstandingResourceRequestCount,
+    announcementDraftCount: announcements.filter((a) => !a.published).length,
+    announcementPublishedCount: announcements.filter((a) => a.published).length,
+    recentAnnouncements,
   };
 }

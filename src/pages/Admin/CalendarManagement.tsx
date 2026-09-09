@@ -1,19 +1,20 @@
 import { useState, type FormEvent } from "react";
-import { Gift } from "lucide-react";
+import { CalendarDays, Gift } from "lucide-react";
 import { academicCalendar, calendarEventCategories } from "../../data/academicCalendar";
 import { useAdminScope } from "../../utils/adminScope";
 import { Button } from "../../components/ui/Button";
+import { Badge } from "../../components/ui/Badge";
+import { FormField } from "../../components/ui/FormField";
+import { Input, Select } from "../../components/ui/Input";
+import { PageHeader } from "../../components/ui/PageHeader";
 import { ProfileSection } from "../../components/character/ProfileSection";
 import { LoadingState } from "../../components/ui/LoadingState";
+import { Table, Thead, Tbody, Tr, Th, Td, TableEmptyRow } from "../../components/ui/Table";
 import type { CalendarDraft } from "../../types/adminPortal";
 
 function formatDate(iso: string): string {
   return new Date(`${iso}T00:00:00`).toLocaleDateString(undefined, { month: "long", day: "numeric", year: "numeric" });
 }
-
-const inputClass =
-  "w-full bg-void/50 border border-parchment-dim/30 rounded-sm px-3 py-2 text-sm text-parchment placeholder:text-parchment-dim/50 focus:border-gold outline-none";
-const labelClass = "text-parchment-dim text-[11px] uppercase tracking-wide mb-1 block";
 
 const emptyForm = { title: "", date: "", category: calendarEventCategories[0], description: "" };
 
@@ -72,44 +73,45 @@ export function CalendarManagementPage() {
   }
 
   return (
-    <div className="px-4 md:px-8 py-6 md:py-8 max-w-3xl mx-auto flex flex-col gap-5">
-      <div>
-        <h1 className="text-2xl md:text-3xl font-display text-gold-bright mb-2">🗓️ Calendar Management</h1>
-        <p className="text-parchment-dim text-sm">{events.length} events on the Academic Calendar.</p>
-      </div>
+    <div className="px-4 md:px-8 py-6 md:py-8 max-w-3xl mx-auto flex flex-col gap-6">
+      <PageHeader
+        title="Calendar Management"
+        description={`${events.length} events on the Academic Calendar.`}
+        icon={CalendarDays}
+      />
 
-      <div className="flex flex-col gap-2">
-        {events.map((event) => (
-          <div key={event.id} className="flex items-center justify-between gap-3 border border-parchment-dim/20 rounded-sm px-5 py-4">
-            <div className="min-w-0">
-              <p className="text-parchment truncate">{event.title}</p>
-              <p className="text-parchment-dim text-xs">{formatDate(event.date)}</p>
-            </div>
-            <span className="text-[10px] uppercase tracking-wide px-2 py-0.5 rounded-full border border-parchment-dim/25 text-parchment-dim shrink-0">
-              {event.category}
-            </span>
-          </div>
-        ))}
-      </div>
+      <Table>
+        <Thead>
+          <Tr>
+            <Th>Event</Th>
+            <Th>Date</Th>
+            <Th>Category</Th>
+          </Tr>
+        </Thead>
+        <Tbody>
+          {events.map((event) => (
+            <Tr key={event.id}>
+              <Td className="text-parchment">{event.title}</Td>
+              <Td className="text-parchment-dim">{formatDate(event.date)}</Td>
+              <Td>
+                <Badge>{event.category}</Badge>
+              </Td>
+            </Tr>
+          ))}
+          {events.length === 0 && <TableEmptyRow colSpan={3}>No events on the Academic Calendar.</TableEmptyRow>}
+        </Tbody>
+      </Table>
 
       <ProfileSection title="Draft Events">
-        <div className="flex flex-col gap-2 mb-4">
+        <div className="flex flex-col gap-3 mb-5">
           {calendarDrafts.length === 0 ? (
             <p className="text-parchment-dim text-sm">No draft events yet.</p>
           ) : (
             calendarDrafts.map((draft) => (
-              <div key={draft.id} className="border border-parchment-dim/10 rounded-sm px-4 py-3">
+              <div key={draft.id} className="border border-parchment-dim/15 rounded-lg px-4 py-3">
                 <div className="flex items-start justify-between gap-3 mb-1">
                   <p className="text-parchment text-sm">{draft.title}</p>
-                  <span
-                    className={`text-[10px] uppercase tracking-wide px-2 py-0.5 rounded-full border shrink-0 ${
-                      draft.status === "Published"
-                        ? "border-[#6b9e6b66] text-[#6b9e6b] bg-[#6b9e6b15]"
-                        : "border-parchment-dim/25 text-parchment-dim"
-                    }`}
-                  >
-                    {draft.status}
-                  </span>
+                  <Badge tone={draft.status === "Published" ? "emerald" : "neutral"}>{draft.status}</Badge>
                 </div>
                 <p className="text-parchment-dim text-xs mb-2">
                   {formatDate(draft.date)} &middot; {draft.category}
@@ -117,14 +119,14 @@ export function CalendarManagementPage() {
                 </p>
                 <div className="flex flex-wrap gap-2">
                   {draft.status === "Draft" && (
-                    <Button variant="secondary" className="px-3 py-1 text-xs" onClick={() => publishCalendarDraft(draft.id)}>
+                    <Button variant="secondary" size="sm" onClick={() => publishCalendarDraft(draft.id)}>
                       Publish
                     </Button>
                   )}
-                  <Button variant="secondary" className="px-3 py-1 text-xs" onClick={() => startEdit(draft)}>
+                  <Button variant="secondary" size="sm" onClick={() => startEdit(draft)}>
                     Edit
                   </Button>
-                  <Button variant="secondary" className="px-3 py-1 text-xs" onClick={() => deleteCalendarDraft(draft.id)}>
+                  <Button variant="secondary" size="sm" onClick={() => deleteCalendarDraft(draft.id)}>
                     Delete
                   </Button>
                 </div>
@@ -133,37 +135,31 @@ export function CalendarManagementPage() {
           )}
         </div>
 
-        <form onSubmit={handleSubmit} className="flex flex-col gap-3 border-t border-parchment-dim/10 pt-4">
+        <form onSubmit={handleSubmit} className="flex flex-col gap-4 border-t border-parchment-dim/10 pt-5">
           <p className="text-parchment-dim text-xs uppercase tracking-wide">
             {editingId ? "Edit Draft" : "New Draft Event"}
           </p>
-          <div>
-            <label className={labelClass} htmlFor="draft-title">Title</label>
-            <input
+          <FormField label="Title" htmlFor="draft-title">
+            <Input
               id="draft-title"
-              className={inputClass}
               value={form.title}
               onChange={(e) => setForm({ ...form, title: e.target.value })}
               required
             />
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div>
-              <label className={labelClass} htmlFor="draft-date">Date</label>
-              <input
+          </FormField>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <FormField label="Date" htmlFor="draft-date">
+              <Input
                 id="draft-date"
                 type="date"
-                className={inputClass}
                 value={form.date}
                 onChange={(e) => setForm({ ...form, date: e.target.value })}
                 required
               />
-            </div>
-            <div>
-              <label className={labelClass} htmlFor="draft-category">Category</label>
-              <select
+            </FormField>
+            <FormField label="Category" htmlFor="draft-category">
+              <Select
                 id="draft-category"
-                className={inputClass}
                 value={form.category}
                 onChange={(e) => setForm({ ...form, category: e.target.value as CalendarDraft["category"] })}
               >
@@ -172,19 +168,16 @@ export function CalendarManagementPage() {
                     {category}
                   </option>
                 ))}
-              </select>
-            </div>
+              </Select>
+            </FormField>
           </div>
-          <div>
-            <label className={labelClass} htmlFor="draft-description">Description</label>
-            <input
+          <FormField label="Description" htmlFor="draft-description" helperText="Optional">
+            <Input
               id="draft-description"
-              className={inputClass}
               value={form.description ?? ""}
               onChange={(e) => setForm({ ...form, description: e.target.value })}
-              placeholder="Optional"
             />
-          </div>
+          </FormField>
           <div className="flex flex-wrap gap-3">
             <Button type="submit">{editingId ? "Save Changes" : "Create Draft"}</Button>
             {editingId && (
@@ -197,9 +190,7 @@ export function CalendarManagementPage() {
       </ProfileSection>
 
       <ProfileSection title="Holiday Templates" icon={Gift}>
-        <p className="text-parchment-dim text-sm">
-          Reusable term/holiday date templates for next year will be available here in a future milestone.
-        </p>
+        <p className="text-parchment-dim text-sm">Reusable term and holiday dates, ready for next year's calendar.</p>
       </ProfileSection>
     </div>
   );

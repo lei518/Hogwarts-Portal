@@ -1,15 +1,54 @@
+import { useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
-import { BookMarked, Clock, MapPin, FlaskConical, Mail, Megaphone } from "lucide-react";
-import { getProfessor, getCoursesForProfessor } from "../../data/professors";
-import { ProfileSection, ProfileField } from "../../components/character/ProfileSection";
+import { BookMarked, Mail, Megaphone, ArrowLeft } from "lucide-react";
+import type { Professor } from "../../types/resources";
+import type { Course } from "../../types/academics";
+import { professorsRepository } from "../../repositories/professorsRepository";
+import { ProfileSection } from "../../components/character/ProfileSection";
+import { Card } from "../../components/ui/Card";
+import { LoadingState } from "../../components/ui/LoadingState";
 
-// Courses Taught is computed from Course.professorId (see data/professors.ts)
-// rather than stored here, so the relationship only has one place to drift.
-// Owl Post Contact and Announcements by this Professor are reserved,
-// not-yet-built sections - the same pattern CourseDetail.tsx uses.
+// Phase 7A - Live Academic Data. `professor` is a real Supabase account
+// (see professorsRepository.ts) - office hours/bio/research interests are
+// never fabricated on a real account's behalf, so an unset field reads as
+// an honest "this professor hasn't listed one" instead. Courses Taught is
+// computed live from
+// course_professor_assignments (coursesRepository.getForProfessor), not
+// stored here, so the relationship only has one place to drift.
 export function ProfessorDetailPage() {
   const { professorId } = useParams<{ professorId: string }>();
-  const professor = professorId ? getProfessor(professorId) : undefined;
+  const [professor, setProfessor] = useState<Professor | undefined>(undefined);
+  const [coursesTaught, setCoursesTaught] = useState<Course[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!professorId) {
+      setLoading(false);
+      return;
+    }
+    let cancelled = false;
+    setLoading(true);
+    Promise.all([
+      professorsRepository.getById(professorId),
+      professorsRepository.getCoursesForProfessor(professorId),
+    ]).then(([foundProfessor, taught]) => {
+      if (cancelled) return;
+      setProfessor(foundProfessor);
+      setCoursesTaught(taught);
+      setLoading(false);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [professorId]);
+
+  if (loading) {
+    return (
+      <div className="px-4 md:px-8 py-6 md:py-8 max-w-3xl mx-auto">
+        <LoadingState label="Loading professor…" />
+      </div>
+    );
+  }
 
   if (!professor) {
     return (
@@ -22,38 +61,17 @@ export function ProfessorDetailPage() {
     );
   }
 
-  const coursesTaught = getCoursesForProfessor(professor.id);
-
   return (
     <div className="px-4 md:px-8 py-6 md:py-8 max-w-3xl mx-auto flex flex-col gap-5">
-      <Link to="/professors" className="text-gold hover:text-gold-bright text-xs">
-        &larr; Back to Professor Directory
+      <Link to="/professors" className="flex items-center gap-1.5 text-gold hover:text-gold-bright text-xs w-fit">
+        <ArrowLeft size={14} />
+        Back to Professor Directory
       </Link>
 
-      <section className="border border-parchment-dim/20 rounded-sm px-6 py-6">
+      <Card as="section" className="px-6 py-6">
         <h1 className="text-2xl md:text-3xl font-display text-gold-bright mb-1">{professor.name}</h1>
-        <p className="text-parchment-dim text-sm mb-4">{professor.title}</p>
-        <p className="text-parchment text-sm leading-relaxed mb-5">{professor.bio}</p>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <ProfileField
-            label="Office Location"
-            value={
-              <span className="flex items-center gap-1.5">
-                <MapPin size={14} className="text-parchment-dim" /> {professor.officeLocation}
-              </span>
-            }
-          />
-          <ProfileField
-            label="Office Hours"
-            value={
-              <span className="flex items-center gap-1.5">
-                <Clock size={14} className="text-parchment-dim" /> {professor.officeHours}
-              </span>
-            }
-          />
-        </div>
-      </section>
+        <p className="text-parchment-dim text-sm">{professor.title}</p>
+      </Card>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <ProfileSection title="Courses Taught" icon={BookMarked}>
@@ -74,31 +92,21 @@ export function ProfessorDetailPage() {
           )}
         </ProfileSection>
 
-        {professor.researchInterests && professor.researchInterests.length > 0 && (
-          <ProfileSection title="Research Interests" icon={FlaskConical}>
-            <div className="flex flex-wrap gap-2">
-              {professor.researchInterests.map((interest) => (
-                <span
-                  key={interest}
-                  className="text-xs border border-parchment-dim/25 rounded-full px-3 py-1 text-parchment-dim"
-                >
-                  {interest}
-                </span>
-              ))}
-            </div>
-          </ProfileSection>
-        )}
-
-        <ProfileSection title="Owl Post Contact" icon={Mail}>
+        <ProfileSection title="Profile Details" icon={Mail}>
           <p className="text-parchment-dim text-sm">
-            Sending Owl Post directly to a professor isn't available yet.
+            This professor hasn't listed office hours, a biography, or research interests here.
           </p>
         </ProfileSection>
 
+        <ProfileSection title="Owlery Contact" icon={Mail}>
+          <p className="text-parchment-dim text-sm mb-3">Send a message directly through the Owlery.</p>
+          <Link to="/owlery" className="text-gold hover:text-gold-bright text-xs">
+            Open your Owlery inbox &rarr;
+          </Link>
+        </ProfileSection>
+
         <ProfileSection title="Announcements by this Professor" icon={Megaphone}>
-          <p className="text-parchment-dim text-sm">
-            Announcements filtered by professor aren't available yet.
-          </p>
+          <p className="text-parchment-dim text-sm">Notices this professor has posted for their students.</p>
         </ProfileSection>
       </div>
     </div>

@@ -43,17 +43,13 @@ export interface Patronus {
   animationRef: string;
 }
 
+// Phase 4 - Spell Archive: no mastery/unlock progression - a spell is
+// either studied or not, the same lightweight "I've read this" bookmark
+// character.bookmarkedBooks already uses for the Library.
 export interface SpellProgress {
   spellId: string;
-  mastery: number; // 0-100
-  unlocked: boolean;
-}
-
-export interface InventoryItem {
-  id: string;
-  name: string;
-  category: "Potion" | "Ingredient" | "Book" | "Quest Item" | "Magical Item";
-  quantity: number;
+  studied: boolean;
+  studiedAt?: string;
 }
 
 export interface Quest {
@@ -61,14 +57,14 @@ export interface Quest {
   title: string;
   description: string;
   completed: boolean;
-  rewardXp: number;
   rewardHousePoints: number;
 }
 
+// Phase 4 - Potion Archive: same studied-only model as SpellProgress above.
 export interface PotionProgress {
   potionId: string;
-  mastery: number; // 0-100
-  timesBrewed: number;
+  studied: boolean;
+  studiedAt?: string;
 }
 
 // One authenticated user owns exactly one character, so a single nullable

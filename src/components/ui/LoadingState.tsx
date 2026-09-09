@@ -7,7 +7,7 @@
 // language - simple text, same card shell, no layout shift.
 export function LoadingState({ label = "Loading…" }: { label?: string }) {
   return (
-    <p className="text-parchment-dim text-sm border border-parchment-dim/15 rounded-sm px-5 py-8 text-center">
+    <p className="text-parchment-dim text-sm border border-parchment-dim/15 rounded-lg px-5 py-10 text-center animate-fade-in">
       {label}
     </p>
   );

@@ -5,9 +5,13 @@ import type { Assignment } from "./academics";
 // its own canonical shape - no nested mega-object, same pattern as
 // types/studentServices.ts.
 //
-// Authentication Foundation (Phase 6B): TeachingCourse, OfficeHour, and
-// ProfessorAnnouncement now carry `professorId`, resolving the "future
-// work" this file's own comment used to defer. StudentRosterEntry
+// Authentication Foundation (Phase 6B): TeachingCourse and OfficeHour now
+// carry `professorId`, resolving the "future work" this file's own comment
+// used to defer (Phase 6 - Communication & Administration System removed
+// ProfessorAnnouncement entirely; Professor pages read the shared
+// Announcement type from types/resources.ts instead, filtered by
+// authorUserId - see utils/professorScope.ts's own comment).
+// StudentRosterEntry
 // deliberately does NOT get its own `professorId` - it's already scoped
 // through `teachingCourseId`, and ManagedAssignment/StudentSubmission stay
 // scoped the same indirect way (via their own teachingCourseId /
@@ -35,13 +39,18 @@ export interface TeachingCourse {
 
 export type RosterStanding = "Excelling" | "On Track" | "Needs Attention";
 
+// Phase 7A - `standing`/`attendanceNote` are optional: a live roster entry
+// (computed from real year-based enrollment, see
+// repositories/professorPortalRepository.ts) has no data source for either
+// - no fabricated assessment is invented on a real student's behalf.
 export interface StudentRosterEntry {
   id: string;
+  studentUserId: string;
   studentName: string;
   house: string;
   year: number;
   teachingCourseId: string;
-  standing: RosterStanding;
+  standing?: RosterStanding;
   attendanceNote?: string;
 }
 
@@ -55,18 +64,6 @@ export interface OfficeHour {
   endTime: string;
   location: string;
   note?: string;
-}
-
-export type ProfessorAnnouncementAudience = "All My Students" | "Specific Course";
-
-export interface ProfessorAnnouncement {
-  id: string;
-  professorId: string; // references ProfessorProfile.id
-  title: string;
-  body: string;
-  audience: ProfessorAnnouncementAudience;
-  teachingCourseId?: string; // set when audience is "Specific Course"
-  postedAt: string; // ISO date
 }
 
 export type AssignmentStatus = "Draft" | "Published" | "Archived";
@@ -86,27 +83,8 @@ export interface ManagedAssignment extends Omit<Assignment, "courseId" | "requir
   status: AssignmentStatus;
 }
 
-export type SubmissionStatus = "Pending" | "Reviewed" | "Returned";
-
-export interface SubmissionGrade {
-  score: number;
-  maxScore: number;
-}
-
-// Grade Management (Phase 3C) - a standalone grading workspace, entirely
-// separate from the Student Portal's GradeRecord (types/grades.ts,
-// data/grades.ts). A StudentSubmission is professor-side only: it never
-// writes to Character or data/grades.ts, and nothing here is read by the
-// Student Portal's Grades/Transcript/Academic Standing/Semester Summary
-// pages. See context/ProfessorGradesContext for the local, in-memory state
-// this type seeds.
-export interface StudentSubmission {
-  id: string;
-  managedAssignmentId: string; // references ManagedAssignment.id
-  studentId: string; // references StudentRosterEntry.id
-  studentName: string;
-  submittedAt: string; // ISO date
-  status: SubmissionStatus;
-  grade?: SubmissionGrade;
-  feedback?: string;
-}
+// Phase 2 - Real Academic Workflow. Grading now reads/writes the live
+// `assignment_submissions` table directly via `types/academics.ts`'s
+// Submission/SubmissionStatus (Submitted/Late/Graded) - the old seeded,
+// name-matched StudentSubmission/SubmissionStatus (Pending/Reviewed/
+// Returned) is gone, see context/ProfessorGradesContext.tsx.

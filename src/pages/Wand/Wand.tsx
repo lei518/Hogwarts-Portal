@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { Wand2 } from "lucide-react";
 import { Button } from "../../components/ui/Button";
+import { Card } from "../../components/ui/Card";
 import { QuizStep } from "../../components/ui/QuizStep";
 import { ProgressBar } from "../../components/ui/ProgressBar";
 import { wandQuestions, calculateWand } from "../../data/wandQuestions";
@@ -20,15 +22,19 @@ export function WandPage() {
   const finished = stepIndex >= wandQuestions.length;
 
   useEffect(() => {
+    // A Character always exists by the time a signed-in Year-1 student
+    // reaches this page (see GameContext.tsx's auto-synthesis effect and
+    // JourneyGate) - this is defensive-only, same as every other guarded
+    // page in this portal.
     if (!character) {
-      navigate("/create-character", { replace: true });
+      navigate("/dashboard", { replace: true });
       return;
     }
     // The ceremony only happens once per character - if a wand has already
     // been chosen (e.g. the player hit "back" mid-onboarding), skip straight
     // ahead instead of letting them retake it and overwrite the result.
     if (character.wand) {
-      navigate("/hogwarts-express", { replace: true });
+      navigate("/sorting", { replace: true });
     }
   }, [character, navigate]);
 
@@ -58,7 +64,7 @@ export function WandPage() {
     // The wand becomes permanent from this point on - nothing in the app
     // offers a way to retake the ceremony or override the result afterward.
     dispatch({ type: "UPDATE_CHARACTER", payload: { wand } });
-    navigate("/hogwarts-express");
+    navigate("/sorting");
   }
 
   return (
@@ -86,7 +92,7 @@ export function WandPage() {
 
       {finished && wand && (
         <div className="flex flex-col items-center text-center max-w-md animate-[fadeIn_0.6s_ease-out]">
-          <span className="text-5xl mb-4">🪄</span>
+          <Wand2 size={40} className="text-gold-bright mb-4" aria-hidden="true" />
           <h2 className="text-3xl font-display text-gold-bright mb-6">Your Wand</h2>
 
           <div className="w-full grid grid-cols-2 gap-4 text-left mb-6">
@@ -104,7 +110,7 @@ export function WandPage() {
             This wand responds especially well to {wand.affinityDescription}.
           </p>
 
-          <Button onClick={handleContinue}>Board the Hogwarts Express</Button>
+          <Button onClick={handleContinue}>Continue to the Sorting Hat</Button>
         </div>
       )}
 
@@ -120,9 +126,9 @@ export function WandPage() {
 
 function Stat({ label, value }: { label: string; value: string }) {
   return (
-    <div className="border border-parchment-dim/20 rounded-sm px-4 py-3">
+    <Card className="px-4 py-3">
       <p className="text-xs uppercase tracking-wide text-parchment-dim mb-1">{label}</p>
       <p className="font-display text-lg text-parchment">{value}</p>
-    </div>
+    </Card>
   );
 }

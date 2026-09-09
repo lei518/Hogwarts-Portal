@@ -1,11 +1,18 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { Sparkles } from "lucide-react";
 import { Button } from "../../components/ui/Button";
+import { Badge } from "../../components/ui/Badge";
 import { QuizStep } from "../../components/ui/QuizStep";
 import { sortingQuestions, scoreSorting, houseInfo } from "../../data/sortingQuestions";
 import { useGame } from "../../context/GameContext";
 
 const REVEAL_LINES = ["Hmm...", "Interesting...", "Very interesting...", "I know exactly where you belong."];
+
+// Year-Based Onboarding (Phase 6L) - carried forward from the (now removed)
+// Common Room page's own welcome bonus; see COMPLETE_SORTING in
+// GameContext.tsx.
+const STARTING_HOUSE_POINTS = 10;
 
 export function Sorting() {
   const navigate = useNavigate();
@@ -32,15 +39,19 @@ export function Sorting() {
   const showResult = finished && (reducedMotion || revealed);
 
   useEffect(() => {
+    // A Character always exists by the time a signed-in Year-1 student
+    // reaches this page (see GameContext.tsx's auto-synthesis effect and
+    // JourneyGate) - this is defensive-only, same as every other guarded
+    // page in this portal.
     if (!character) {
-      navigate("/create-character", { replace: true });
+      navigate("/dashboard", { replace: true });
       return;
     }
     // The ceremony only happens once per character - if it's already been
     // sorted (e.g. the player hit "back" mid-onboarding), skip straight
     // ahead instead of letting them retake it and overwrite the result.
     if (character.sortingCompleted) {
-      navigate("/common-room", { replace: true });
+      navigate("/dashboard", { replace: true });
     }
   }, [character, navigate]);
 
@@ -66,14 +77,15 @@ export function Sorting() {
 
   function handleContinue() {
     if (!result) return;
-    // Written together so the assignment and the "done, forever" flag land
-    // in the same update - the house becomes permanent from this point on;
-    // nothing in the app offers a way to re-sort or override it afterward.
+    // One atomic dispatch: the house assignment, the "done, forever" flag,
+    // and the welcome house-points bonus all land together - the house
+    // becomes permanent from this point on; nothing in the app offers a
+    // way to re-sort or override it afterward.
     dispatch({
-      type: "UPDATE_CHARACTER",
-      payload: { house: result.house, sortingCompleted: true },
+      type: "COMPLETE_SORTING",
+      payload: { house: result.house, startingHousePoints: STARTING_HOUSE_POINTS },
     });
-    navigate("/common-room");
+    navigate("/dashboard");
   }
 
   return (
@@ -102,7 +114,7 @@ export function Sorting() {
 
       {showResult && result && (
         <div className="flex flex-col items-center text-center animate-[fadeIn_0.6s_ease-out]">
-          <span className="text-6xl mb-4">{houseInfo[result.house].emoji}</span>
+          <Sparkles size={28} className="mb-4" style={{ color: houseInfo[result.house].colors.secondary }} />
           <h2
             className="text-5xl md:text-6xl font-display font-semibold mb-6 tracking-wide"
             style={{ color: houseInfo[result.house].colors.secondary }}
@@ -114,15 +126,12 @@ export function Sorting() {
           </p>
           <div className="flex gap-3 mb-8">
             {houseInfo[result.house].strengths.map((strength) => (
-              <span
-                key={strength}
-                className="px-3 py-1 text-xs uppercase tracking-wide border border-parchment-dim/30 rounded-full text-parchment-dim"
-              >
+              <Badge key={strength} tone="neutral">
                 {strength}
-              </span>
+              </Badge>
             ))}
           </div>
-          <Button onClick={handleContinue}>Find Your Common Room</Button>
+          <Button onClick={handleContinue}>Continue to Your Dashboard</Button>
         </div>
       )}
 

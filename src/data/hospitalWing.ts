@@ -12,8 +12,6 @@ export const hospitalWingService: StudentService = {
   hours: { display: "24 hours" },
 };
 
-export const matron = { name: "Madam Pomfrey", title: "School Matron" };
-
 export interface HospitalService {
   id: string;
   name: string;
@@ -40,7 +38,7 @@ export const availableServices: HospitalService[] = [
 
 export const emergencyCare = {
   description:
-    "For emergencies outside a professor's ability to treat, have a fellow student fetch Madam Pomfrey immediately, or send word by the nearest portrait. The Hospital Wing treats emergencies at any hour, day or night.",
+    "For emergencies outside a professor's ability to treat, have a fellow student fetch the Healer on duty immediately, or send word by the nearest portrait. The Hospital Wing treats emergencies at any hour, day or night.",
 };
 
 export interface RecoveryRoom {

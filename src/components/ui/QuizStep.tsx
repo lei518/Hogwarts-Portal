@@ -41,10 +41,10 @@ export function QuizStep({
           <button
             key={option.id}
             onClick={() => onSelect(option.id)}
-            className="text-left px-5 py-4 border border-parchment-dim/30 rounded-sm bg-void/40 hover:border-gold hover:bg-void/70 transition-colors duration-150 font-body text-parchment"
+            className="flex items-center gap-3.5 text-left px-5 py-4 border border-parchment-dim/20 rounded-lg bg-surface hover:border-gold/50 hover:bg-surface-hover hover:-translate-y-0.5 transition-all duration-150 font-body text-parchment shadow-sm shadow-black/10"
           >
-            <span className="text-gold-bright mr-3">
-              {String.fromCharCode(65 + index)}.
+            <span className="flex items-center justify-center w-7 h-7 rounded-md bg-gold/10 text-gold-bright text-sm font-medium shrink-0">
+              {String.fromCharCode(65 + index)}
             </span>
             {option.label}
           </button>
